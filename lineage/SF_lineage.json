@@ -1,0 +1,110 @@
+[
+  {
+    "src": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
+    },
+    "trg": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
+    },
+    "source_code": {
+      "path": "source_codes/JOB01_LOAD_CUST_ACCOUNTS.sql",
+      "highlights": [
+        { "start": 0, "len": 120 }
+      ],
+      "transformation_display_name": "JOB01_LOAD_CUST_ACCOUNTS"
+    }
+  },
+  {
+    "src": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "DAILY_BALANCE", "type": "Table" }
+    },
+    "trg": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "DAILY_BALANCE", "type": "Table" }
+    },
+    "source_code": {
+      "path": "source_codes/JOB02_LOAD_DAILY_BALANCE.sql",
+      "highlights": [
+        { "start": 0, "len": 120 }
+      ],
+      "transformation_display_name": "JOB02_LOAD_DAILY_BALANCE"
+    }
+  },
+  {
+    "src": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
+    },
+    "trg": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_AMB", "type": "Table" }
+    },
+    "source_code": {
+      "path": "source_codes/JOB03_CALC_AMB.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 85,
+          "text": "WHERE c.is_active = 'ACTIVE'"
+        }
+      ],
+      "transformation_display_name": "JOB03_CALC_AMB"
+    }
+  },
+{
+    "src": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "DAILY_BALANCE", "type": "Table" }
+    },
+    "trg": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_AMB", "type": "Table" }
+    },
+    "source_code": {
+      "path": "source_codes/JOB03_CALC_AMB.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 85,
+          "text": "WHERE c.is_active = 'ACTIVE'"
+        }
+      ],
+      "transformation_display_name": "JOB03_CALC_AMB"
+    }
+  }
+]

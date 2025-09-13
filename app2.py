@@ -249,3 +249,8 @@ if sas_df is not None and sf_df is not None:
 
         st.subheader("✅ Validation Results")
         st.dataframe(pd.DataFrame(results))
+
+        st.markdown("---")
+        # ---------------------------
+        # Show Lineage
+        # ---------------------------

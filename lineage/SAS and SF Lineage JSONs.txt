@@ -157,7 +157,7 @@ Snowflake Lineage
           "len": 85,
           "text": "WHERE c.is_active = 'ACTIVE'"
         }
-      ]
+      ],
       "transformation_display_name": "JOB03_CALC_AMB (Calculate Average Monthly Balance)"
     }
   }
