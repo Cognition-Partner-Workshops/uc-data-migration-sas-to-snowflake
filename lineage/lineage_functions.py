@@ -52,6 +52,12 @@ def add_lineage_to_pyvis(net, G, start_table, direction="upstream", error_tables
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
     net.write_html(tmp.name, open_browser=False)
     return tmp.name
+    
+    ## Save to HTML string (without writing to file)
+    #html_string = net.generate_html()
+    ## Force transparent background in the body
+    #html_string = html_string.replace("background-color: #ffffff;", "background-color: transparent;")
+    #return html_string
 
 def add_triplet_to_pyvis(src_table, job, trg_table, net, existing_nodes, error_tables):
     # Add nodes with colors
@@ -91,37 +97,3 @@ def load_lineage_graph(LINEAGE_FILE) -> nx.DiGraph:
     
     print(f"✅ Loaded lineage graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges.")
     return graph
-
-# --------------------------------
-# Streamlit UI
-# --------------------------------
-#st.set_page_config(layout="wide")
-#LINEAGE_FILE = "SAS_lineage_graph.pkl"
-
-st.title("📊 SAS vs Snowflake Lineage")
-
-sas_col, sf_col = st.columns(2)
-table="WORK.DAILY_BALANCE"
-error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
-#table="WORK.MONTHLY_AMB"
-#error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
-
-with sas_col:
-    st.subheader("🔵 SAS Lineage")
-    G = load_lineage_graph("SAS_lineage_graph.pkl")
-    net = Network(height="300px", width="100%", notebook=False, directed=True)
-    sas_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream")
-    #sas_html = build_lineage_graph(sas_lineage, "SAS Lineage")
-    #build_lineage_graph(lineage_pickle_path: str, target_table: str, html_output: str = "lineage.html"):
-    components.html(open(sas_html, 'r', encoding='utf-8').read(), height=300)
-
-with sf_col:
-    st.subheader("🟠 Snowflake Lineage")
-    G = load_lineage_graph("SF_lineage_graph.pkl")
-    net = Network(height="300px", width="100%", notebook=False, directed=True)
-    sf_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream", error_tables=error_tables)
-    #sf_html = build_lineage_graph(snowflake_lineage, "Snowflake Lineage")
-    #sf_html = build_lineage_graph(snowflake_lineage, error_tables)
-    #st.components.v1.html(open(sf_html).read(), height=500, scrolling=True)
-    components.html(open(sf_html, 'r', encoding='utf-8').read(), height=300)
-

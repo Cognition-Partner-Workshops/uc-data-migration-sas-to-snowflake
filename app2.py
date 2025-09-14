@@ -1,10 +1,21 @@
 import io
+import os
 import streamlit as st
 import pandas as pd
 import json
 import random
 from typing import Dict, List
 
+##########################################################################
+# Functionality
+# 1. Load the starting point - Tables to check for post-migration validation
+# 2. Get the validation rules
+# 3. Generate code for validations using LLM
+# 2. Apply the validation rules on datasets and check if there are any reconcillation issues
+# 3. If issues found check the other tables in the up-stream lineage for issues
+# 4. Collect all tables with issues and retrieve the transformation logic
+# 5. Provide the details to LLM pompt and generate a summary
+##########################################################################
 #Execution
 #streamlit run app2.py
 
@@ -131,7 +142,8 @@ if sas_file:
         #Properly decode SAS character variables
         sas_df = sas_df.map(decode_value)
         sas_df.columns = sas_df.columns.str.lower()
-        
+        sas_table_name = os.path.splitext(sas_file.name)[0].lower()  # remove extension
+
         st.success(f"SAS dataset loaded: {sas_df.shape[0]} rows, {sas_df.shape[1]} cols")
     except Exception as e:
         st.error(f"❌ Error reading SAS dataset: {e}")
@@ -139,6 +151,7 @@ if sas_file:
 if sf_file:
     try:
         sf_df = pd.read_csv(io.StringIO(sf_file.getvalue().decode("utf-8")))
+        sf_table_name = os.path.splitext(sf_file.name)[0].lower()  # remove extension
         st.success(f"Snowflake CSV loaded: {sf_df.shape[0]} rows, {sf_df.shape[1]} cols")
     except Exception as e:
         st.error(f"❌ Error reading Snowflake CSV: {e}")
@@ -146,9 +159,9 @@ if sf_file:
 
 if sas_df is not None and sf_df is not None:
     st.subheader("📊 Preview Uploaded Data")
-    st.write("**SAS Baseline:**")
+    st.write(f"**SAS Baseline : {sas_table_name} **")
     st.dataframe(sas_df.head())
-    st.write("**Snowflake Data:**")
+    st.write(f"**Snowflake Data: {sf_table_name} **")
     st.dataframe(sf_df.head())
 
     # ---------------------------

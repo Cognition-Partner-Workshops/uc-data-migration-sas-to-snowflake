@@ -1,0 +1,52 @@
+[theme]
+# The base setting tells Streamlit to use the default dark theme as a starting point.
+base="dark"
+
+# The primary accent color for buttons, sliders, etc.
+#primaryColor="#1ED760"
+primaryColor="#1ea3d7ff"
+
+# The main background color for the app. Spotify's black is slightly off-black.
+backgroundColor="#191414"
+
+# The background color for most widgets and the sidebar.
+secondaryBackgroundColor="#121212"
+
+# The color for standard text.
+textColor="#FFFFFF"
+
+# The default font family for the app is Sans serif, use the default
+#font="sans serif"
+
+#borderColor="mediumSlateBlue"
+#showWidgetBorder=false
+
+#[theme.sidebar]
+#base="dark"
+#textColor="darkGoldenrod"
+#linkColor="darkGoldenrod"
+#showWidgetBorder=true
+
+
+###############################
+# Use Poppins as the primary font with sans-serif as a fallback.
+#font="Poppins, sans-serif"
+
+# The [[theme.fontFaces]] section tells Streamlit how to load the custom font.
+# This section can be repeated for different font weights or families.
+#[[theme.fontFaces]]
+# This is the name used in the `[theme]` section above.
+#family="Poppins"
+# This URL points to the Google Fonts file for the Poppins font.
+# It uses a variable font file that contains all weights (200-1000).
+#url="https://fonts.gstatic.com/s/poppins/v20/pxiEyp8kv8JHgFVrFJnLPxk.woff2"
+# Declares the style (normal, italic, oblique) for the font file.
+#style="normal"
+# Declares the weight range supported by the variable font file.
+#weight="200 1000"
+
+#[[theme.fontFaces]]
+#family="Poppins"
+#url="https://fonts.gstatic.com/s/poppins/v20/pxiGyp8kv8JHgFVrJJLucXtAKzU.woff2"
+#style="italic"
+#weight="200 1000"
