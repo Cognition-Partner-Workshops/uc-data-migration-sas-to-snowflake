@@ -48,16 +48,16 @@ def add_lineage_to_pyvis(net, G, start_table, direction="upstream", error_tables
 
     dfs(start_table)
 
-    # Save to temp file
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
-    net.write_html(tmp.name, open_browser=False)
-    return tmp.name
+    ## Save to temp file
+    #tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
+    #net.write_html(tmp.name, open_browser=False)
+    #return tmp.name
     
-    ## Save to HTML string (without writing to file)
-    #html_string = net.generate_html()
-    ## Force transparent background in the body
+    # Save to HTML string (without writing to file)
+    html_string = net.generate_html()
+    # Force transparent background in the body
     #html_string = html_string.replace("background-color: #ffffff;", "background-color: transparent;")
-    #return html_string
+    return html_string
 
 def add_triplet_to_pyvis(src_table, job, trg_table, net, existing_nodes, error_tables):
     # Add nodes with colors

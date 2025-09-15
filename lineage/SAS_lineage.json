@@ -6,7 +6,7 @@
         { "name": "Finance_DB", "type": "Database" },
         { "name": "RAW", "type": "Schema" }
       ],
-      "parent": { "name": "CUST_ACCOUNTS.sas7bdat", "type": "Table" }
+      "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
     },
     "trg": {
       "nodes": [
@@ -16,7 +16,7 @@
       ],
       "parent": { "name": "WORK.CUST_ACCOUNTS", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB01_LOAD_CUST_ACCOUNTS.sas",
       "highlights": [
         { "start": 0, "len": 120 }
@@ -31,7 +31,7 @@
         { "name": "Finance_DB", "type": "Database" },
         { "name": "RAW", "type": "Schema" }
       ],
-      "parent": { "name": "DAILY_BALANCE.sas7bdat", "type": "Table" }
+      "parent": { "name": "DAILY_BALANCE", "type": "Table" }
     },
     "trg": {
       "nodes": [
@@ -41,7 +41,7 @@
       ],
       "parent": { "name": "WORK.DAILY_BALANCE", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB02_LOAD_DAILY_BALANCE.sas",
       "highlights": [
         { "start": 0, "len": 120 }
@@ -64,9 +64,9 @@
         { "name": "Finance_DB", "type": "Database" },
         { "name": "STAGING", "type": "Schema" }
       ],
-      "parent": { "name": "WORK.MONTHLY_AMB", "type": "Table" }
+      "parent": { "name": "MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sas",
       "highlights": [
         { "start": 0, "len": 580 }
@@ -89,9 +89,9 @@
         { "name": "Finance_DB", "type": "Database" },
         { "name": "STAGING", "type": "Schema" }
       ],
-      "parent": { "name": "WORK.MONTHLY_AMB", "type": "Table" }
+      "parent": { "name": "MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sas",
       "highlights": [
         { "start": 0, "len": 580 }

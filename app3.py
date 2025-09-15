@@ -7,7 +7,7 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 
 from lineage.lineage_functions import add_lineage_to_pyvis, load_lineage_graph
-from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets
+from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets, clean_pyvis_html
 
 ##########################################################################
 # Functionality
@@ -212,131 +212,96 @@ if sas_df is not None and sf_df is not None:
 # ---------------------------
 # Show Lineage
 # ---------------------------
-####################################################################
-# Create a pyvis network
-net = Network(height="300px", width="100%", bgcolor="#222222", font_color="white", notebook=True)
-net.options = {
-    "configure": {"enabled": False},
-    "edges": {
-        "color": {"inherit": True},
-        "smooth": {"enabled": True, "type": "dynamic"},
-    },
-    "interaction": {
-        "dragNodes": True,
-        "hideEdgesOnDrag": False,
-        "hideNodesOnDrag": False,
-    },
-    "physics": {
-        "enabled": True,
-        "stabilization": {
-            "enabled": True,
-            "fit": True,
-            "iterations": 1000,
-            "onlyDynamicEdges": False,
-            "updateInterval": 50,
-        },
-    },
-    # Custom CSS for the container - this will override the default border
-    "layout": {"improvedLayout": False}, # Often recommended for more stable layouts
-    "__css__": """
-        #mynetwork {
-            border: none !important; /* Remove the border */
-            margin: 0 !important; /* Ensure no margin is added by default */
-            padding: 0 !important; /* Ensure no padding is added by default */
-        }
-        body {
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        .card {
-            border: none !important; /* If using Bootstrap cards, remove their border too */
-        }
-        .card-body {
-            padding: 0 !important; /* Remove card-body padding */
-        }
-    """
-}
+        st.subheader("🔗⬆️ Upstream Lineage")
+        sas_col, sf_col = st.columns(2)
+        #table="WORK.DAILY_BALANCE"
+        #error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
 
-# Add nodes and edges (example using NetworkX)
-G = nx.cycle_graph(10)
-for node in G.nodes():
-    net.add_node(node, label=str(node), color="lightblue")
-for edge in G.edges():
-    net.add_edge(edge[0], edge[1])
+        with sas_col:
+            #table="MONTHLY_AMB"
+            table = sas_table_name
+            error_tables = ["MONTHLY_AMB", "table_Y"]
 
-# Generate the HTML for the network
-html_content = net.generate_html()
+            G = load_lineage_graph("./lineage/SAS_lineage_graph.pkl")
+            #net = Network(height="300px", width="100%",
+            #              bgcolor="#000000", font_color="white")
+            net = Network(height="300px", width="100%", 
+                          bgcolor="#222222", font_color="white", 
+                          notebook=False, directed=True
+                          )
+            net.options = {
+                "configure": {"enabled": False},
+                "edges": {
+                    "color": {"inherit": True},
+                    "smooth": {"enabled": True, "type": "dynamic"},
+                },
+                "interaction": {
+                    "dragNodes": True,
+                    "hideEdgesOnDrag": False,
+                    "hideNodesOnDrag": False,
+                },
+                "physics": {
+                    "enabled": True,
+                    "stabilization": {
+                        "enabled": True,
+                        "fit": True,
+                        "iterations": 1000,
+                        "onlyDynamicEdges": False,
+                        "updateInterval": 50,
+                    },
+                }
+            }
+            # You can add this directly or modify the options dict
+            sas_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream")
+            sas_html = clean_pyvis_html(sas_html, False)
+            with st.container(border=True):
+                st.markdown("#### 🟠 SAS Lineage")
+                components.html(sas_html, height=300)
 
-custom_css = """
-    <style type="text/css">
-         body {
-             margin: 0 !important;
-             padding: 0 !important;
-         }
-         #mynetwork {
-             border: none !important; /* Remove the explicit border */
-             /* You can also reset margin/padding if you suspect it's contributing */
-             margin: 0 !important;
-             padding: 0 !important;
-         }
-         .card { /* If Bootstrap's .card is creating a border */
-             border: none !important;
-         }
-         .card-body { /* If Bootstrap's .card-body is adding padding */
-             padding: 0 !important;
-         }
-    </style>
-"""
+        with sf_col:
+            #table="MONTHLY_AMB"
+            table = sf_table_name
+            error_tables = ["MONTHLY_AMB", "table_Y"]
 
-# Find the closing </head> tag and insert the custom CSS before it
-# This assumes the <head> tag exists and you're adding it after other styles
-# You might need to adjust the insertion point depending on your exact HTML structure
-html_content = html_content.replace('</head>', custom_css + '</head>')
+            G = load_lineage_graph("./lineage/SF_lineage_graph.pkl")
+            #net = Network(height="300px", width="100%", notebook=False, directed=True)
+            net = Network(height="300px", width="100%", 
+                          bgcolor="#222222", font_color="white", 
+                          notebook=False, directed=True
+                          )
+            net.options = {
+                "configure": {"enabled": False},
+                "edges": {
+                    "color": {"inherit": True},
+                    "smooth": {"enabled": True, "type": "dynamic"},
+                },
+                "interaction": {
+                    "dragNodes": True,
+                    "hideEdgesOnDrag": False,
+                    "hideNodesOnDrag": False,
+                },
+                "physics": {
+                    "enabled": True,
+                    "stabilization": {
+                        "enabled": True,
+                        "fit": True,
+                        "iterations": 1000,
+                        "onlyDynamicEdges": False,
+                        "updateInterval": 50,
+                    },
+                }
+            }
 
-# Embed the HTML in Streamlit
-#components.html(html_content, height=300)
-st.write(html_content)
-####################################################################
+            sf_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream", error_tables=error_tables)
+            sf_html = clean_pyvis_html(sf_html, False)
+            with st.container(border=True):
+                st.markdown("#### 🔵 Snowflake Lineage")
+                components.html(sf_html, height=300)
 
+        # ---------------------------
+        # Repeat validations for the upstream dataset until clean
+        # ---------------------------
 
-sas_col, sf_col = st.columns(2)
-#table="WORK.DAILY_BALANCE"
-#error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
-table="WORK.MONTHLY_AMB"
-error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
-
-with sas_col:
-    st.markdown("#### 🟠 SAS Lineage")
-    G = load_lineage_graph("./lineage/SAS_lineage_graph.pkl")
-    net = Network(height="300px", width="100%",
-                  bgcolor="#000000", font_color="white")
-
-    # Add custom CSS to override the default border on #mynetwork
-    # You can add this directly or modify the options dict
-    sas_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream")
-    with st.container(border=True):
-        components.html(open(sas_html, 'r', encoding='utf-8').read(), height=300)
-        #st.markdown("graph included here ...")
-        #components.html(
-        #    f"""
-        #    <div style="border:2px solid #ccc; border-radius:8px; overflow:hidden;">
-        #        {sas_html}
-        #    </div>
-        #    """,
-        #    height=300,
-        #)
-
-with sf_col:
-    st.markdown("#### 🔵 Snowflake Lineage")
-    G = load_lineage_graph("./lineage/SF_lineage_graph.pkl")
-    net = Network(height="300px", width="100%", notebook=False, directed=True)
-    sf_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream", error_tables=error_tables)
-    components.html(open(sf_html, 'r', encoding='utf-8').read(), height=300)
-
-# ---------------------------
-# Repeat validations for the upstream dataset until clean
-# ---------------------------
-
-# ---------------------------
-# Test Report: Summarize all failures as 
-# ---------------------------
+        # ---------------------------
+        # Test Report: Summarize all failures as 
+        # ---------------------------

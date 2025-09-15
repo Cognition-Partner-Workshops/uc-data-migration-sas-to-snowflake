@@ -24,7 +24,7 @@ sas_lineage = [
       ],
       "parent": { "name": "WORK.CUST_ACCOUNTS", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB01_LOAD_CUST_ACCOUNTS.sas",
       "highlights": [{ "start": 0, "len": 120 }],
       "transformation_display_name": "JOB01_LOAD_CUST_ACCOUNTS"
@@ -47,7 +47,7 @@ sas_lineage = [
       ],
       "parent": { "name": "WORK.DAILY_BALANCE", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB02_LOAD_DAILY_BALANCE.sas",
       "highlights": [{ "start": 0, "len": 120 }],
       "transformation_display_name": "JOB02_LOAD_DAILY_BALANCE"
@@ -70,7 +70,7 @@ sas_lineage = [
       ],
       "parent": { "name": "WORK.MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sas",
       "highlights": [{ "start": 0, "len": 580 }],
       "transformation_display_name": "JOB03_CALC_AMB"
@@ -93,7 +93,7 @@ sas_lineage = [
       ],
       "parent": { "name": "WORK.MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sas",
       "highlights": [{ "start": 0, "len": 580 }],
       "transformation_display_name": "JOB03_CALC_AMB"
@@ -119,7 +119,7 @@ snowflake_lineage = [
       ],
       "parent": { "name": "STG.CUST_ACCOUNTS", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB01_LOAD_CUST_ACCOUNTS.sql",
       "highlights": [{ "start": 0, "len": 120 }],
       "transformation_display_name": "JOB01_LOAD_CUST_ACCOUNTS"
@@ -142,7 +142,7 @@ snowflake_lineage = [
       ],
       "parent": { "name": "STG.DAILY_BALANCE", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB02_LOAD_DAILY_BALANCE.sql",
       "highlights": [{ "start": 0, "len": 120 }],
       "transformation_display_name": "JOB02_LOAD_DAILY_BALANCE"
@@ -165,7 +165,7 @@ snowflake_lineage = [
       ],
       "parent": { "name": "MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sql",
       "highlights": [{ "start": 0, "len": 85, "text": "WHERE c.is_active = 'ACTIVE'" }],
       "transformation_display_name": "JOB03_CALC_AMB"
@@ -188,7 +188,7 @@ snowflake_lineage = [
       ],
       "parent": { "name": "MONTHLY_AMB", "type": "Table" }
     },
-    "source_code": {
+    "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sql",
       "highlights": [{ "start": 0, "len": 85, "text": "WHERE c.is_active = 'ACTIVE'" }],
       "transformation_display_name": "JOB03_CALC_AMB"
@@ -237,7 +237,7 @@ def build_lineage_graph(lineage_json, error_tables=None):
     for link in lineage_json:
         src_table = link["src"]["parent"]["name"]
         trg_table = link["trg"]["parent"]["name"]
-        job = link["source_code"]["transformation_display_name"]
+        job = link["transformations"]["transformation_display_name"]
 
         # Determine node colors
         nodes = [

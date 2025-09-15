@@ -14,9 +14,9 @@ def build_DAG(lineage_data):
     for item in lineage_data:
         src_table = item["src"]["parent"]["name"]
         trg_table = item["trg"]["parent"]["name"]
-        job = item["source_code"]["transformation_display_name"]
-        code = item["source_code"]["path"]
-        highlights = item["source_code"]["highlights"]
+        job = item["transformations"]["transformation_display_name"]
+        code = item["transformations"]["path"]
+        highlights = item["transformations"]["highlights"]
 
         # Skip if missing tables
         if not src_table or not trg_table:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         print(e)
         
     # Load the raw lineage JSON (Collibra) for Snowflake (SF)
-    with open("SAS_lineage.json", "r") as f:
+    with open("SF_lineage.json", "r") as f:
         SF_lineage_data = json.load(f)
     
     try:
