@@ -2,12 +2,8 @@ import io
 import os
 import pandas as pd
 import streamlit as st
-import networkx as nx
-from pyvis.network import Network
 import streamlit.components.v1 as components
 
-from lineage.lineage_functions import add_lineage_to_pyvis, load_lineage_graph
-from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets, clean_pyvis_html
 
 ##########################################################################
 # Functionality
@@ -23,10 +19,22 @@ from helper_functions import decode_value, suggest_columns_for_rule, validate_da
 #streamlit run app3.py
 
 # ------------------------------------------------------------------------
+# Common Functions
+# ------------------------------------------------------------------------
+#from lineage.lineage_functions import add_lineage_to_pyvis, load_lineage_graph, mark_current_and_error_nodes, build_lineage_legend
+from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets, generate_lineage_graph, clean_pyvis_html
+
+# ------------------------------------------------------------------------
 # Session State Initialization
 # ------------------------------------------------------------------------
 if "validations_list" not in st.session_state:
     st.session_state.validations_list = []
+
+if "validation_results" not in st.session_state:
+    st.session_state["validation_results"] = None
+
+if "any_failures" not in st.session_state:
+    st.session_state["any_failures"] = None
 
 # ------------------------------------------------------------------------
 # Streamlit UI
@@ -85,7 +93,7 @@ if sas_file:
         #Properly decode SAS character variables
         sas_df = sas_df.map(decode_value)
         sas_df.columns = sas_df.columns.str.lower()
-        sas_table_name = os.path.splitext(sas_file.name)[0].lower()  # remove extension
+        sas_table_name = os.path.splitext(sas_file.name)[0]  # remove extension
 
         st.success(f"SAS dataset loaded: {sas_df.shape[0]} rows, {sas_df.shape[1]} cols")
     except Exception as e:
@@ -94,7 +102,7 @@ if sas_file:
 if sf_file:
     try:
         sf_df = pd.read_csv(io.StringIO(sf_file.getvalue().decode("utf-8")))
-        sf_table_name = os.path.splitext(sf_file.name)[0].lower()  # remove extension
+        sf_table_name = os.path.splitext(sf_file.name)[0]  # remove extension
         st.success(f"Snowflake CSV loaded: {sf_df.shape[0]} rows, {sf_df.shape[1]} cols")
     except Exception as e:
         st.error(f"❌ Error reading Snowflake CSV: {e}")
@@ -180,7 +188,7 @@ if sas_df is not None and sf_df is not None:
                 )
         selected_validations = event.selection.rows
         if selected_validations:
-            if st.button("Delete Selected Validations"):
+            if st.button("❌ Delete Selected Validations"):
                 st.session_state.validations_list = [
                 item for i, item in enumerate(st.session_state.validations_list) if i not in selected_validations
                 ]
@@ -191,19 +199,24 @@ if sas_df is not None and sf_df is not None:
 # ---------------------------
 # Run Validations
 # ---------------------------
-    if st.button("🚀 Run All Validations"):
-        any_failures, results = validate_datasets(
+    if st.button("🧪 Run All Validations"):
+        st.session_state["any_failures"], st.session_state["validation_results"]  = validate_datasets(
             st.session_state.validations_list, 
             sas_df,
             sf_df
             )
+        #Reset the lineage for each change in validations (button clicked)
+        del st.session_state["sas_lineage"]
+        del st.session_state["sf_lineage"]
 
 # ---------------------------
 # Show Validations Results
 # ---------------------------
+    if st.session_state["validation_results"] is not None:
         st.subheader("✅ Validation Results")
-        st.dataframe(pd.DataFrame(results), hide_index=True)
-        if any_failures:
+        st.dataframe(pd.DataFrame(st.session_state["validation_results"]), hide_index=True)
+
+        if st.session_state["any_failures"]:
             st.error(f"❌ Reconcillation Failures Observed for Table: {sas_table_name}")
         else:
             st.success(f"✔️ No Reconcillation Failures Observed for Table: {sas_table_name}")
@@ -212,96 +225,57 @@ if sas_df is not None and sf_df is not None:
 # ---------------------------
 # Show Lineage
 # ---------------------------
-        st.subheader("🔗⬆️ Upstream Lineage")
+        st.subheader("🔗Lineage")
         sas_col, sf_col = st.columns(2)
-        #table="WORK.DAILY_BALANCE"
-        #error_tables = ["WORK.MONTHLY_AMB", "table_Y"]
 
         with sas_col:
-            #table="MONTHLY_AMB"
-            table = sas_table_name
-            error_tables = ["MONTHLY_AMB", "table_Y"]
+            #table = "TABLE2"
+            net_key = "sas_lineage"
+            if net_key not in st.session_state:
+                sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
+                error_tables = ["table_X", "table_Y"]
+    
+                sas_html = generate_lineage_graph(sas_lineage_pickle, sas_table_name, error_tables)
+                st.session_state[net_key] = sas_html
+            else:
+                sas_html = st.session_state[net_key]
 
-            G = load_lineage_graph("./lineage/SAS_lineage_graph.pkl")
-            #net = Network(height="300px", width="100%",
-            #              bgcolor="#000000", font_color="white")
-            net = Network(height="300px", width="100%", 
-                          bgcolor="#222222", font_color="white", 
-                          notebook=False, directed=True
-                          )
-            net.options = {
-                "configure": {"enabled": False},
-                "edges": {
-                    "color": {"inherit": True},
-                    "smooth": {"enabled": True, "type": "dynamic"},
-                },
-                "interaction": {
-                    "dragNodes": True,
-                    "hideEdgesOnDrag": False,
-                    "hideNodesOnDrag": False,
-                },
-                "physics": {
-                    "enabled": True,
-                    "stabilization": {
-                        "enabled": True,
-                        "fit": True,
-                        "iterations": 1000,
-                        "onlyDynamicEdges": False,
-                        "updateInterval": 50,
-                    },
-                }
-            }
-            # You can add this directly or modify the options dict
-            sas_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream")
-            sas_html = clean_pyvis_html(sas_html, False)
             with st.container(border=True):
                 st.markdown("#### 🟠 SAS Lineage")
                 components.html(sas_html, height=300)
 
         with sf_col:
-            #table="MONTHLY_AMB"
-            table = sf_table_name
-            error_tables = ["MONTHLY_AMB", "table_Y"]
+            net_key = "sf_lineage"
+            if net_key not in st.session_state:
+                #table="MONTHLY_AMB"
+                sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
+                error_tables = ["MONTHLY_AMB", "table_Y"]
 
-            G = load_lineage_graph("./lineage/SF_lineage_graph.pkl")
-            #net = Network(height="300px", width="100%", notebook=False, directed=True)
-            net = Network(height="300px", width="100%", 
-                          bgcolor="#222222", font_color="white", 
-                          notebook=False, directed=True
-                          )
-            net.options = {
-                "configure": {"enabled": False},
-                "edges": {
-                    "color": {"inherit": True},
-                    "smooth": {"enabled": True, "type": "dynamic"},
-                },
-                "interaction": {
-                    "dragNodes": True,
-                    "hideEdgesOnDrag": False,
-                    "hideNodesOnDrag": False,
-                },
-                "physics": {
-                    "enabled": True,
-                    "stabilization": {
-                        "enabled": True,
-                        "fit": True,
-                        "iterations": 1000,
-                        "onlyDynamicEdges": False,
-                        "updateInterval": 50,
-                    },
-                }
-            }
+                sf_html = generate_lineage_graph(sf_lineage_pickle, sf_table_name, error_tables)
+                st.session_state[net_key] = sf_html
+            else:
+                sf_html = st.session_state[net_key]
 
-            sf_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream", error_tables=error_tables)
-            sf_html = clean_pyvis_html(sf_html, False)
             with st.container(border=True):
                 st.markdown("#### 🔵 Snowflake Lineage")
                 components.html(sf_html, height=300)
 
-        # ---------------------------
-        # Repeat validations for the upstream dataset until clean
-        # ---------------------------
+                ##Add Legend
+                #net = Network(height="30px", width="100%", 
+                #            bgcolor="#222222", font_color="white", 
+                #            notebook=False, directed=False
+                #            )
+                #legend_html = build_lineage_legend(net)  # Use the separate legend function
+                #st.components.v1.html(clean_pyvis_html(legend_html, False), height=35, scrolling=False)
 
-        # ---------------------------
-        # Test Report: Summarize all failures as 
-        # ---------------------------
+# ---------------------------
+# Repeat validations for the upstream dataset until clean
+# ---------------------------
+        any_failures = True
+        if any_failures:
+            if st.button("⬆️🔗❓ Check Upstream Dependencies?"):
+                st.markdown("Checkin Upstream Dependencies")
+
+# ---------------------------
+# Test Report: Summarize all failures as 
+# ---------------------------

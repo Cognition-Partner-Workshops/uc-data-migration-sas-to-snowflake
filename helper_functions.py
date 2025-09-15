@@ -180,3 +180,45 @@ def clean_pyvis_html(html_content: str, only_remove_block=True) -> str:
             soup = new_html
 
     return str(soup)
+
+
+# ------------------------------------------------------------------------
+#Function to generate and render Lineage Graph as Pyvis
+# ------------------------------------------------------------------------
+from pyvis.network import Network
+from lineage.lineage_functions import load_lineage_graph, mark_current_and_error_nodes
+
+def generate_lineage_graph(lineage_pickle, table, error_tables):
+    G = load_lineage_graph(lineage_pickle)
+    net = Network(height="300px", width="100%", 
+                    bgcolor="#222222", font_color="white", 
+                    notebook=False, directed=True
+                    )
+    net.options = {
+        "configure": {"enabled": False},
+        "edges": {
+            "color": {"inherit": True},
+            "smooth": {"enabled": True, "type": "dynamic"},
+        },
+        "interaction": {
+            "dragNodes": True,
+            "hideEdgesOnDrag": False,
+            "hideNodesOnDrag": False,
+        },
+        "physics": {
+            "enabled": True,
+            "stabilization": {
+                "enabled": True,
+                "fit": True,
+                "iterations": 1000,
+                "onlyDynamicEdges": False,
+                "updateInterval": 50,
+            },
+        }
+    }
+    # You can add this directly or modify the options dict
+    #sas_html = add_lineage_to_pyvis(net, G, start_table=table, direction="upstream")
+    rendered_html = mark_current_and_error_nodes(net, G, current_table=table, error_tables=error_tables)
+    rendered_html = clean_pyvis_html(rendered_html, False)
+
+    return rendered_html

@@ -107,4 +107,30 @@
       "transformation_display_name": "JOB03_CALC_AMB"
     }
   }
+,
+  {
+    "src": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "Custom_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "TABLE1", "type": "Table" }
+    },
+    "trg": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "Custom_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "TABLE2", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOBX_TRANSFORM.sql",
+      "highlights": [
+        { "start": 0, "len": 200 }
+      ],
+      "transformation_display_name": "JOBX"
+    }
+  }
 ]

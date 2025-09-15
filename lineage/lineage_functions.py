@@ -97,3 +97,127 @@ def load_lineage_graph(LINEAGE_FILE) -> nx.DiGraph:
     
     print(f"✅ Loaded lineage graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges.")
     return graph
+
+# --------------------------------
+# Function: Locate and Color the nodes
+# Current Node: White ring
+# Error Node & Edges: Red
+# --------------------------------
+def mark_current_and_error_nodes(net, G, current_table, error_tables=None, add_legend=True):
+    if error_tables is None:
+        error_tables = set()
+
+    existing_nodes = set()
+    visited = set()
+    added_edges = set()  # Track edges to avoid duplicates
+
+    def dfs(node):
+        if node in visited:
+            return
+        visited.add(node)
+
+        # Determine node color
+        # Determine node color
+        if node in error_tables and node != current_table:
+            node_color = {"background": "red", "border": "red", "highlight": "red"}
+            border_width = 1
+        elif node in error_tables and node == current_table:
+            node_color = {"background": "red", "border": "white", "highlight": "red"}
+            border_width = 3
+        elif node == current_table:
+            node_color = {"background": "skyblue", "border": "white", "highlight": "skyblue"}
+            border_width = 3
+        elif G.nodes[node].get("type") == "job":
+            node_color = {"background": "orange", "border": "orange", "highlight": "orange"}
+            border_width = 1
+        else:
+            node_color = {"background": "skyblue", "border": "skyblue", "highlight": "skyblue"}
+            border_width = 1
+
+        if node not in existing_nodes:
+            net.add_node(
+                node,
+                label=node,
+                color=node_color,
+                borderWidth=border_width,
+                title=node,
+                shape="dot",
+                font={"vadjust": -20}
+            )
+            existing_nodes.add(node)
+
+        # Traverse neighbors (predecessors and successors)
+        for nbr in set(G.predecessors(node)).union(set(G.successors(node))):
+            dfs(nbr)
+
+            # Track edges to avoid duplicates
+            edge_tuple = (node, nbr)
+            if edge_tuple not in added_edges:
+                edge_color = "red" if node in error_tables or nbr in error_tables else "white"
+                net.add_edge(node, nbr, color=edge_color)
+                added_edges.add(edge_tuple)
+
+    dfs(current_table)
+    return net.generate_html()
+
+#Function to add legend to the container
+def build_lineage_legend(net):
+    """
+    Create a horizontal, centered legend for lineage graphs.
+    Returns the HTML string for embedding in Streamlit.
+    """
+    net.options = {
+                    "configure": {"enabled": False},
+                    "interaction": {
+                        "dragNodes": False,
+                        "zoomView": False, 
+                        "dragView": False
+                    },
+                    "physics": {"enabled": False},
+                    }
+    # Legend items: label + color
+    legend_items = [
+        ("Current Table", {"background": "skyblue", "border": "white", "highlight": "skyblue"}),
+        ("Error Table", {"background": "red", "border": "red", "highlight": "red"}),
+        ("Job Node", {"background": "orange", "border": "orange", "highlight": "orange"}),
+    ]
+
+    # Horizontal layout
+    spacing = 100
+    start_x = -((len(legend_items) - 1) * spacing) // 2  # center align
+    y = 0
+
+    for i, (label, color) in enumerate(legend_items):
+        net.add_node(
+            f"legend_{i}",
+            label=label,
+            color=color,
+            x=start_x + i * spacing,
+            y=y,
+            fixed=True,
+            physics=False,
+            shape="dot",
+            font={"size": 15, "vadjust": -30}
+        )
+
+    return net.generate_html()
+
+import networkx as nx
+
+#Function to identify Sub-Graph for a given node/table within a pickle networks
+def get_node_network(G, current_table):
+    # Example usage
+    #current_table = "my_table"  # Replace with your input
+    #subgraph = get_node_network(G, current_table)
+    
+    if current_table not in G:
+        #raise ValueError(f"Node '{current_table}' not found in the graph.")
+        return None
+
+    # Find the connected component that contains the node
+    for component in nx.connected_components(G):
+        if current_table in component:
+            # Extract subgraph
+            return G.subgraph(component).copy()
+        
+    return None
