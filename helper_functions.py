@@ -91,5 +91,6 @@ def validate_datasets(validations_list: list,
         any_failures = (results_df['Status'] == 'FAIL').any()
     else:
         any_failures = False
+    
     return any_failures, results_df
 

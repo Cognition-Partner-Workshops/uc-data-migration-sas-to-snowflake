@@ -41,9 +41,9 @@ if "any_failures" not in st.session_state:
     st.session_state["any_failures"] = None
 
 if "SAS_directory" not in st.session_state:
-    st.session_state["SAS_directory"] = "./sample_data"
+    st.session_state["SAS_directory"] = "./sample_data/"
 if "SF_directory" not in st.session_state:
-    st.session_state["SF_directory"] = "./sample_data"
+    st.session_state["SF_directory"] = "./sample_data/"
 
 # ------------------------------------------------------------------------
 # Streamlit UI
