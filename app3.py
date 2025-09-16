@@ -22,7 +22,11 @@ import streamlit.components.v1 as components
 # Common Functions
 # ------------------------------------------------------------------------
 #from lineage.lineage_functions import add_lineage_to_pyvis, load_lineage_graph, mark_current_and_error_nodes, build_lineage_legend
-from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets, generate_lineage_graph, clean_pyvis_html
+from lineage.lineage_functions import generate_lineage_graph, collect_upstream_tables
+from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets
+
+sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
+sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
 
 # ------------------------------------------------------------------------
 # Session State Initialization
@@ -35,6 +39,11 @@ if "validation_results" not in st.session_state:
 
 if "any_failures" not in st.session_state:
     st.session_state["any_failures"] = None
+
+if "SAS_directory" not in st.session_state:
+    st.session_state["SAS_directory"] = "./sample_data"
+if "SF_directory" not in st.session_state:
+    st.session_state["SF_directory"] = "./sample_data"
 
 # ------------------------------------------------------------------------
 # Streamlit UI
@@ -102,7 +111,9 @@ if sas_file:
 if sf_file:
     try:
         sf_df = pd.read_csv(io.StringIO(sf_file.getvalue().decode("utf-8")))
+
         sf_table_name = os.path.splitext(sf_file.name)[0]  # remove extension
+
         st.success(f"Snowflake CSV loaded: {sf_df.shape[0]} rows, {sf_df.shape[1]} cols")
     except Exception as e:
         st.error(f"❌ Error reading Snowflake CSV: {e}")
@@ -113,10 +124,6 @@ if sf_file:
 # ---------------------------
 if sas_df is not None and sf_df is not None:
     st.subheader("📊 Preview Uploaded Datasets")
-    #st.write(f"**SAS Baseline : {sas_table_name} **")
-    #st.dataframe(sas_df.head())
-    #st.write(f"**Snowflake Data: {sf_table_name} **")
-    #st.dataframe(sf_df.head())
     tab1, tab2 = st.tabs(["Preview SAS Dataset", "Preview Snowflake Dataset"])
     with tab1:
         st.header(f"**SAS Baseline : {sas_table_name} **")
@@ -200,14 +207,21 @@ if sas_df is not None and sf_df is not None:
 # Run Validations
 # ---------------------------
     if st.button("🧪 Run All Validations"):
+        #if "validations_list" not in st.session_state or not st.session_state.validations_list:
+        if not st.session_state.get("validations_list"):
+            st.error("No validations selected. Select validations to apply them on selected datasets.")
+            st.stop()
+
         st.session_state["any_failures"], st.session_state["validation_results"]  = validate_datasets(
             st.session_state.validations_list, 
             sas_df,
             sf_df
             )
         #Reset the lineage for each change in validations (button clicked)
-        del st.session_state["sas_lineage"]
-        del st.session_state["sf_lineage"]
+        #del st.session_state["sas_lineage"]
+        st.session_state.pop("sas_lineage", None)
+        #del st.session_state["sf_lineage"]
+        st.session_state.pop("sf_lineage", None)
 
 # ---------------------------
 # Show Validations Results
@@ -217,11 +231,15 @@ if sas_df is not None and sf_df is not None:
         st.dataframe(pd.DataFrame(st.session_state["validation_results"]), hide_index=True)
 
         if st.session_state["any_failures"]:
-            st.error(f"❌ Reconcillation Failures Observed for Table: {sas_table_name}")
+            st.error(f"❌ Reconcillation Failures Observed for Table: {sf_table_name}")
+            st.session_state.error_tables = []
+            st.session_state.error_tables.append(sf_table_name)
+            st.markdown("---")
         else:
-            st.success(f"✔️ No Reconcillation Failures Observed for Table: {sas_table_name}")
+            st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
+            st.markdown("---")
+            st.stop()
 
-        st.markdown("---")
 # ---------------------------
 # Show Lineage
 # ---------------------------
@@ -232,10 +250,9 @@ if sas_df is not None and sf_df is not None:
             #table = "TABLE2"
             net_key = "sas_lineage"
             if net_key not in st.session_state:
-                sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
-                error_tables = ["table_X", "table_Y"]
+                #error_tables = ["table_X", "table_Y"]
     
-                sas_html = generate_lineage_graph(sas_lineage_pickle, sas_table_name, error_tables)
+                sas_html = generate_lineage_graph(sas_lineage_pickle, sas_table_name, None)
                 st.session_state[net_key] = sas_html
             else:
                 sas_html = st.session_state[net_key]
@@ -248,10 +265,9 @@ if sas_df is not None and sf_df is not None:
             net_key = "sf_lineage"
             if net_key not in st.session_state:
                 #table="MONTHLY_AMB"
-                sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
-                error_tables = ["MONTHLY_AMB", "table_Y"]
+                #error_tables = ["MONTHLY_AMB", "table_Y"]
 
-                sf_html = generate_lineage_graph(sf_lineage_pickle, sf_table_name, error_tables)
+                sf_html = generate_lineage_graph(sf_lineage_pickle, sf_table_name, st.session_state.error_tables)
                 st.session_state[net_key] = sf_html
             else:
                 sf_html = st.session_state[net_key]
@@ -271,11 +287,27 @@ if sas_df is not None and sf_df is not None:
 # ---------------------------
 # Repeat validations for the upstream dataset until clean
 # ---------------------------
-        any_failures = True
-        if any_failures:
+        #any_failures = True
+        if st.session_state["any_failures"]:
             if st.button("⬆️🔗❓ Check Upstream Dependencies?"):
-                st.markdown("Checkin Upstream Dependencies")
+                st.info("Checkin Upstream Dependencies")
+                #1. Get the current failed table as a starting point
+                #2. Navigate the lineage upstream and identify upstream tables
+                #3. Perform the same validations on these tables
+                #4. These tables may not have all the columns as the current table - to be handled
 
+                st.session_state.upstream_tables = []
+
+                new_val = {"table": sf_table_name, "rank": 0}
+                st.session_state.upstream_tables.append(new_val)
+
+                # Collect recursively
+                st.session_state.upstream_tables.extend(
+                    collect_upstream_tables(sf_lineage_pickle, sf_table_name)
+                )
+
+                st.write(st.session_state["SF_directory"])
+                st.write(st.session_state.upstream_tables)
 # ---------------------------
 # Test Report: Summarize all failures as 
 # ---------------------------
