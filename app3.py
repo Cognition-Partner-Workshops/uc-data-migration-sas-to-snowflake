@@ -28,6 +28,31 @@ from helper_functions import decode_value, suggest_columns_for_rule, validate_da
 sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
 sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
 
+SAS_directory=  "./sample_data/"
+SF_directory = "./sample_data/Scenario1/"
+
+#Function to load SAS Datasets to a Dataframe
+def load_datasets(file_name: str, platform: str, qualified=True):
+    if platform == "SAS":
+        if not qualified:
+            file_name = SAS_directory + file_name + ".sas7bdat"
+
+        # Pandas will auto-detect format
+        df = pd.read_sas(file_name, format="sas7bdat")
+
+        #Properly decode SAS character variables
+        df = df.map(decode_value)
+    elif platform == "SF": 
+        if not qualified:
+            file_name = SF_directory + file_name + ".csv"
+            df = pd.read_csv(file_name)
+        else:
+            df = pd.read_csv(io.StringIO(file_name.getvalue().decode("utf-8")))
+    else:
+        df = None
+
+    return df 
+
 # ------------------------------------------------------------------------
 # Session State Initialization
 # ------------------------------------------------------------------------
@@ -39,11 +64,6 @@ if "validation_results" not in st.session_state:
 
 if "any_failures" not in st.session_state:
     st.session_state["any_failures"] = None
-
-if "SAS_directory" not in st.session_state:
-    st.session_state["SAS_directory"] = "./sample_data/"
-if "SF_directory" not in st.session_state:
-    st.session_state["SF_directory"] = "./sample_data/"
 
 # ------------------------------------------------------------------------
 # Streamlit UI
@@ -96,11 +116,8 @@ sf_df = None
 
 if sas_file:
     try:
-        # Pandas will auto-detect format
-        sas_df = pd.read_sas(sas_file, format="sas7bdat")
-
-        #Properly decode SAS character variables
-        sas_df = sas_df.map(decode_value)
+        #Load SAS datasets to a DataFrame
+        sas_df = load_datasets(sas_file, "SAS")
         sas_df.columns = sas_df.columns.str.lower()
         sas_table_name = os.path.splitext(sas_file.name)[0]  # remove extension
 
@@ -110,8 +127,7 @@ if sas_file:
 
 if sf_file:
     try:
-        sf_df = pd.read_csv(io.StringIO(sf_file.getvalue().decode("utf-8")))
-
+        sf_df = load_datasets(sf_file, "SF")
         sf_table_name = os.path.splitext(sf_file.name)[0]  # remove extension
 
         st.success(f"Snowflake CSV loaded: {sf_df.shape[0]} rows, {sf_df.shape[1]} cols")
@@ -215,7 +231,9 @@ if sas_df is not None and sf_df is not None:
         st.session_state["any_failures"], st.session_state["validation_results"]  = validate_datasets(
             st.session_state.validations_list, 
             sas_df,
-            sf_df
+            sas_table_name,
+            sf_df,
+            sf_table_name
             )
         #Reset the lineage for each change in validations (button clicked)
         #del st.session_state["sas_lineage"]
@@ -306,8 +324,66 @@ if sas_df is not None and sf_df is not None:
                     collect_upstream_tables(sf_lineage_pickle, sf_table_name)
                 )
 
-                st.write(st.session_state["SF_directory"])
-                st.write(st.session_state.upstream_tables)
+                #st.write(st.session_state["SF_directory"])
+                #st.write(st.session_state.upstream_tables)
+
+                #Run a loop on st.session_state.upstream_tables to validate all the tables in the list
+                # Filter and sort the tables, starting from rank = 1
+                # print the results and the lineage at the end for all error tables
+                sorted_tables = sorted(
+                    [t for t in st.session_state.upstream_tables if t["rank"] >= 1],
+                    key=lambda x: x["rank"]
+                )
+
+                # Make sure validation_results exists
+                if "validation_results" not in st.session_state:
+                    st.session_state["validation_results"] = []
+
+                # Loop through each table in rank order
+                for tbl in sorted_tables:
+                    table_name = tbl["table"]
+                    rank = tbl["rank"]
+
+                    # Example: load data for each table
+                    try:
+                        # Try loading the data
+                        sas_df = load_datasets(table_name, "SAS", False)
+                        sf_df = load_datasets(table_name, "SF", False)
+
+                    except FileNotFoundError as e:
+                        st.warning(f"Skipping {table_name}: {e}")
+                        continue  # move to next table
+
+                    # Run validation
+                    any_failures, new_results = validate_datasets(
+                        st.session_state.validations_list, 
+                        sas_df,
+                        table_name,
+                        sf_df,
+                        table_name
+                    )
+
+                    # Keep "any_failures" sticky if any table fails
+                    #st.session_state["any_failures"] = any_failures or st.session_state.get("any_failures", False)
+
+                    # Append results
+                    #st.session_state["validation_results"].extend(new_results)
+                    # Concatenate DataFrames instead of extend
+                    st.session_state["validation_results"] = pd.concat(
+                        [st.session_state["validation_results"], new_results],
+                        ignore_index=True
+                    )
+    
+                    #Write the validation test report
+                    if any_failures:
+                        st.error(f"❌ Reconcillation Failures Observed for Table: {table_name}")
+                        st.dataframe(pd.DataFrame(st.session_state["validation_results"]), hide_index=True)
+                        st.session_state.error_tables.append(sf_table_name)
+                        st.markdown("---")
+                    else:
+                        st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
+                        st.markdown("---")
+
 # ---------------------------
 # Test Report: Summarize all failures as 
 # ---------------------------
