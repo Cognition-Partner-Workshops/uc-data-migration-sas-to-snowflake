@@ -419,23 +419,23 @@ def collect_upstream_tables(lineage_pickle, start_table):
         return None
 
     all_upstream = []
+    rank_counter = [1]  # use list so it’s mutable in nested dfs
+
     visited = set()
 
-    def dfs(table, rank):
+    def dfs(table):
         if table in visited:
             return
         visited.add(table)
 
-        # Get immediate upstream tables
         for nbr in G.predecessors(table):
             if G.nodes[nbr].get("type") == "job":
-                # Predecessor tables of job
                 for src_table in G.predecessors(nbr):
                     if G.nodes[src_table].get("type") == "table":
-                        all_upstream.append({"table": src_table, "rank": rank})
-                        dfs(src_table, rank + 1)
+                        all_upstream.append({"table": src_table, "rank": rank_counter[0]})
+                        rank_counter[0] += 1  # increment rank for next table
+                        dfs(src_table)
 
-    dfs(start_table, rank=1)
+    dfs(start_table)
     return all_upstream
-
 
