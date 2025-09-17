@@ -411,7 +411,26 @@ if sas_df is not None and sf_df is not None:
 # ---------------------------
 # Test Report: Summarize all failures using a LLM
 # ---------------------------
-    if st.session_state["validation_results_run2"] is not None:
+    #This section should execute despite if the upstream dependencies is clicked or not
+    # - merge the validation_results from both the runs (for first run other should be empty anyway)
+    # - only keeping the unique records
+    # Temporary dictionary to hold unique records
+    # The key is a tuple of (Test, SAS Dataset) for uniqueness
+    #merged_list = st.session_state["validation_results"] + st.session_state["validation_results_run2"]
+
+    val1 = st.session_state.get("validation_results")
+    val2 = st.session_state.get("validation_results_run2")
+
+    dfs = [v for v in (val1, val2) if isinstance(v, pd.DataFrame)]
+
+    if dfs:  # not empty
+        df = pd.concat(dfs, ignore_index=True)
+    else:
+        df = pd.DataFrame()  # empty if nothing present
+    df.drop_duplicates(subset=['Test', 'SAS Dataset', 'SF Table', 'SAS Column', 'SF Column'], keep='last', inplace=True)
+    merged_list_unique = df.to_dict("records")
+
+    if merged_list_unique is not None:
         st.subheader("✅ Summary of the Validation Results")
 
         if st.session_state["any_failures"]:
@@ -419,14 +438,69 @@ if sas_df is not None and sf_df is not None:
             #st.dataframe(st.session_state["upstream_tables"])
             #st.dataframe(st.session_state["error_tables"])
             #Printing the validation_results_run2 after lineage navigation
-            st.dataframe(st.session_state["validation_results_run2"])
-            st.write(generate_llm_summary(
+            #st.dataframe(merged_list_unique)
+            llm_response = generate_llm_summary(
                         st.session_state["upstream_tables"],
                         st.session_state["error_tables"],
-                        st.session_state["validation_results_run2"],
+                        merged_list_unique,
                         sas_lineage_pickle,
                         sf_lineage_pickle)
-                     )
+
+            # Your HTML body string (can be anything, no <head>)
+            html_body = """
+            <div>
+            <h2>Example Content</h2>
+            <p>This is some long content inside the scrollable box.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit...</p>
+            <p>... keep adding more paragraphs ...</p>
+            </div>
+            """
+            # Get Streamlit theme text color and background color
+            text_color = st.get_option("theme.textColor")  # e.g., "#FFFFFF" for dark theme
+            bg_color = st.get_option("theme.backgroundColor")  # e.g., "#0E1117" for dark theme
+            border_color = st.get_option("theme.secondaryBackgroundColor")  # optional
+
+
+            # Wrap the HTML inside a styled container with fixed height and scrollbars
+            iframe_html = f"""
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8"/>
+                <style>
+                  * {{ box-sizing: border-box; }}
+                 html, body {{
+                    margin: 0;
+                    padding: 0;
+                    background: {bg_color};
+                    color: {text_color};
+                    font-family: inherit;
+                }}
+                .scroll-box {{
+                    border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    padding: 12px;
+                    width: 100%;
+                    max-height: 300px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    -webkit-overflow-scrolling: touch;
+                    background: {bg_color};
+                    color: {text_color};
+                }}
+                .scroll-box img {{ max-width:100%; height:auto; display:block; }}
+                .scroll-box table {{ width:100%; table-layout:fixed; word-break:break-word; }}
+                </style>
+            </head>
+            <body>
+                <div class="scroll-box">
+                {llm_response}
+                </div>
+            </body>
+            </html>
+            """
+            #components.html(iframe_html, height=320, scrolling=True)
+            components.html(iframe_html, height=320)
             st.markdown("---")
         else:
             st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
