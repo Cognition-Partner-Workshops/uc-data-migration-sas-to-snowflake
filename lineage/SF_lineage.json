@@ -1,6 +1,6 @@
 [
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -8,7 +8,7 @@
       ],
       "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -25,7 +25,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -33,7 +33,7 @@
       ],
       "parent": { "name": "DAILY_BALANCE", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -50,7 +50,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -58,7 +58,7 @@
       ],
       "parent": { "name": "STG.CUST_ACCOUNTS", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -79,7 +79,7 @@
     }
   },
 {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -87,7 +87,7 @@
       ],
       "parent": { "name": "STG.DAILY_BALANCE", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "FINANCE_DB", "type": "Database" },
@@ -109,7 +109,7 @@
   }
 ,
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },
@@ -117,7 +117,7 @@
       ],
       "parent": { "name": "TABLE1", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },

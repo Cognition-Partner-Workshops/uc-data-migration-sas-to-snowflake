@@ -12,11 +12,12 @@ def build_DAG(lineage_data):
     G = nx.DiGraph()
 
     for item in lineage_data:
-        src_table = item["src"]["parent"]["name"]
-        trg_table = item["trg"]["parent"]["name"]
+        src_table = item["source"]["parent"]["name"]
+        trg_table = item["target"]["parent"]["name"]
         job = item["transformations"]["transformation_display_name"]
         code = item["transformations"]["path"]
-        highlights = item["transformations"]["highlights"]
+        #highlights = item["transformations"]["highlights"]["text"]
+        highlights = [item.get("text", "") for item in item["transformations"]["highlights"]]
 
         # Skip if missing tables
         if not src_table or not trg_table:
@@ -29,7 +30,7 @@ def build_DAG(lineage_data):
         # Add job node
         G.add_node(job, type="job", code=code, highlights=highlights)
 
-        # Add edges src -> job -> trg
+        # Add edges source -> job -> target
         # Connect them: table → job → table
         G.add_edge(src_table, job)
         G.add_edge(job, trg_table)

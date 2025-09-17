@@ -6,10 +6,9 @@ import streamlit as st
 from pyvis.network import Network
 import streamlit.components.v1 as components
 
-# --------------------------------
+#------------------------------------------------------------------------
 # Function: Build and return graph
-# --------------------------------
-
+#------------------------------------------------------------------------
 def add_lineage_to_pyvis(net, G, start_table, direction="upstream", error_tables=None):
     if error_tables is None:
         error_tables = set()
@@ -98,11 +97,11 @@ def load_lineage_graph(LINEAGE_FILE) -> nx.DiGraph:
     #print(f"✅ Loaded lineage graph with {len(graph.nodes)} nodes and {len(graph.edges)} edges.")
     return graph
 
-# --------------------------------
+#------------------------------------------------------------------------
 # Function: Locate and Color the nodes
 # Current Node: White ring
 # Error Node & Edges: Red
-# --------------------------------
+#------------------------------------------------------------------------
 def mark_current_and_error_nodes(net, G, current_table, error_tables=None):
     if error_tables is None:
         error_tables = set()
@@ -163,7 +162,9 @@ def mark_current_and_error_nodes(net, G, current_table, error_tables=None):
     dfs(current_table)
     return net.generate_html()
 
+#------------------------------------------------------------------------
 #Function to add legend to the container
+#------------------------------------------------------------------------
 def build_lineage_legend(net):
     """
     Create a horizontal, centered legend for lineage graphs.
@@ -207,7 +208,9 @@ def build_lineage_legend(net):
 
 import networkx as nx
 
+#------------------------------------------------------------------------
 #Function to identify Sub-Graph for a given node/table within a pickle networks
+#------------------------------------------------------------------------
 def get_node_network(G, current_table):
     # Example usage
     #current_table = "my_table"  # Replace with your input
@@ -438,4 +441,64 @@ def collect_upstream_tables(lineage_pickle, start_table):
 
     dfs(start_table)
     return all_upstream
+
+
+#------------------------------------------------------------------------
+#Find all the jobs that generate the given table 
+# and return all of information available for the transformation job
+#------------------------------------------------------------------------
+def collect_job_for_table(lineage_pickle, table_name):
+    G = load_lineage_graph(lineage_pickle)
+
+    if table_name not in G.nodes:
+        return None
+
+    all_upstream_jobs = []
+
+    for nbr in G.predecessors(table_name):
+        if G.nodes[nbr].get("type") == "job":
+            all_upstream_jobs.append(
+                {
+                    "job": G.nodes[nbr],
+                    "code": G.nodes[nbr].get("code"), 
+                    "highlights": G.nodes[nbr].get("highlights")
+                 }
+            )
+
+    return all_upstream_jobs
+
+#------------------------------------------------------------------------
+#Collects the jobs that directly target the start_table.
+#------------------------------------------------------------------------
+def collect_direct_target_jobs(lineage_pickle, target_table):
+    """
+    Args:
+        lineage_pickle (str): The path to the pickled graph file.
+        start_table (str): The name of the table to find direct jobs for.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a job
+              and contains its name, code, and highlights.
+              Returns None if the start_table is not in the graph.
+    """
+    G = load_lineage_graph(lineage_pickle)
+    if G is None or target_table not in G.nodes:
+        return None
+
+    direct_jobs = []
+
+    # Iterate through all direct predecessors of the start_table
+    for predecessor in G.predecessors(target_table):
+        # Check if the predecessor node is a "job"
+        if G.nodes[predecessor].get("type") == "job":
+            job_attributes = G.nodes[predecessor]
+            job_info = {
+                "Job_Name": predecessor,
+                "Source_Code": job_attributes.get("code"),
+                "Highlights_Code_Snippet": job_attributes.get("highlights"),
+            }
+            direct_jobs.append(job_info)
+            
+    return direct_jobs
+
 

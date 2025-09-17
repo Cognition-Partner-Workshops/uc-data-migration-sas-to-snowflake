@@ -1,6 +1,6 @@
 [
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -8,7 +8,7 @@
       ],
       "parent": { "name": "CUST_ACCOUNTS", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -25,7 +25,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -33,7 +33,7 @@
       ],
       "parent": { "name": "DAILY_BALANCE", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -50,7 +50,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -58,7 +58,7 @@
       ],
       "parent": { "name": "WORK.CUST_ACCOUNTS", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -75,7 +75,7 @@
     }
   },
 {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -83,7 +83,7 @@
       ],
       "parent": { "name": "WORK.DAILY_BALANCE", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -100,7 +100,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -108,7 +108,7 @@
       ],
       "parent": { "name": "WORK.DAILY_BALANCE", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Finance_DB", "type": "Database" },
@@ -125,7 +125,7 @@
     }
   },
   {
-    "src": {
+    "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },
@@ -133,7 +133,7 @@
       ],
       "parent": { "name": "TABLE1", "type": "Table" }
     },
-    "trg": {
+    "target": {
       "nodes": [
         { "name": "sas", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },
