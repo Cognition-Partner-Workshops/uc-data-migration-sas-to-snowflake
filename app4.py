@@ -111,16 +111,20 @@ st.set_page_config(page_title="Agentic RAG Migration Validation", layout="wide")
 #Custom CSS for Sub Headers
 st.markdown("""
     <style>
-    h1 { font-size: 24px !important; color: white; }
-    h2 { font-size: 20px !important; color: #4CAF50; }
-    h3 { font-size: 18px !important; color: #ff5733; }
-    h4 { font-size: 16px !important; color: #1f77b4; }
-    
-    .stMarkdown, p { font-size: 14px !important; }
+        h1 { font-size: 28px !important; color: white; }
+        h2 { font-size: 24px !important; color: #4CAF50; }
+        h3 { font-size: 18px !important; color: #ff5733; }
+        h4 { font-size: 14px !important; color: #1f77b4; }
+        
+        .stMarkdown, a { font-size: 14px !important; }
+        .stMarkdown, p { font-size: 14px !important; }
+        .stMarkdown, li { font-size: 14px !important; }
+        .stMarkdown, span { font-size: 14px !important; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Agentic RAG Migration Validation & Testing (SAS → Snowflake Demo)")
+st.title("Agentic RAG Migration Validation & Testing")
+st.header("(SAS → Snowflake Demo)")
 
 # Reset button in sidebar
 if st.sidebar.button("🔄 Reset App"):
@@ -181,12 +185,12 @@ if sas_df is not None and sf_df is not None:
     st.subheader("📊 Preview Uploaded Datasets")
     tab1, tab2 = st.tabs(["Preview SAS Dataset", "Preview Snowflake Dataset"])
     with tab1:
-        st.header(f"**SAS Baseline : {sas_table_name} **")
+        st.subheader(f"**SAS Baseline : {sas_table_name} **")
         #st.dataframe(sas_df.head(), hide_index=True)
         st.table(sas_df.head())
         #st.image("https://static.streamlit.io/examples/cat.jpg", width=200)
     with tab2:
-        st.header(f"**Snowflake Data: {sf_table_name} **")
+        st.subheader(f"**Snowflake Data: {sf_table_name} **")
         #st.dataframe(sf_df.head(), hide_index=True)
         st.table(sf_df.head())
 
@@ -431,7 +435,7 @@ if sas_df is not None and sf_df is not None:
     merged_list_unique = df.to_dict("records")
 
     if merged_list_unique is not None:
-        st.subheader("✅ Summary of the Validation Results")
+        st.subheader("✅ Summary Report")
 
         if st.session_state["any_failures"]:
             #st.error(f"❌ Reconcillation Failures Observed for Table: {sf_table_name}")
@@ -439,68 +443,177 @@ if sas_df is not None and sf_df is not None:
             #st.dataframe(st.session_state["error_tables"])
             #Printing the validation_results_run2 after lineage navigation
             #st.dataframe(merged_list_unique)
-            llm_response = generate_llm_summary(
+            llm_response_html = generate_llm_summary(
                         st.session_state["upstream_tables"],
                         st.session_state["error_tables"],
                         merged_list_unique,
                         sas_lineage_pickle,
                         sf_lineage_pickle)
 
-            # Your HTML body string (can be anything, no <head>)
-            html_body = """
-            <div>
-            <h2>Example Content</h2>
-            <p>This is some long content inside the scrollable box.</p>
-            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit...</p>
-            <p>... keep adding more paragraphs ...</p>
+            #Buid nice border and styling to display the summary report
+            #Provide a download button to download the report as PDF
+            from weasyprint import HTML
+            from io import BytesIO
+            from datetime import datetime
+
+            # --- Content without Streamlit-specific border ---
+            export_html_content = """
+            <h1>Hello World</h1>
+            <p>This is <b>formatted</b> HTML exported to PDF.</p>
+            """
+
+            # --- Content with border (for Streamlit UI only) ---
+            ui_html_content = f"""
+            <div class="custom-box">
+            {llm_response_html}
             </div>
             """
-            # Get Streamlit theme text color and background color
-            text_color = st.get_option("theme.textColor")  # e.g., "#FFFFFF" for dark theme
-            bg_color = st.get_option("theme.backgroundColor")  # e.g., "#0E1117" for dark theme
-            border_color = st.get_option("theme.secondaryBackgroundColor")  # optional
+            # CSS for UI only (does NOT go into the PDF)
+            st.markdown(
+                """
+                <style>
+                .custom-box {
+                    border: 2px solid #4A90E2;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 10px;
+                    background-color: #191414; 
+                    font-family: sans-serif, Arial;
+                    overflow-x: auto;           /* enable horizontal scrolling */
+                    /*max-width: 100%;             keep within page width */
+                    display: block;
+                }
+                .custom-box table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    table-layout: auto;          /* allows columns to shrink */
+                }
 
+                .custom-box th, .custom-box td {
+                    padding: 8px;
+                    text-align: left;
+                    white-space: nowrap;         /* prevents breaking words mid-cell */
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
 
-            # Wrap the HTML inside a styled container with fixed height and scrollbars
-            iframe_html = f"""
-            <!doctype html>
+            # --- Show the bordered UI content ---
+            st.markdown(ui_html_content, unsafe_allow_html=True)
+
+            # --- PDF export uses clean content (no border) ---
+            full_html_for_pdf = f"""
             <html>
             <head>
-                <meta charset="utf-8"/>
                 <style>
-                  * {{ box-sizing: border-box; }}
-                 html, body {{
-                    margin: 0;
-                    padding: 0;
-                    background: {bg_color};
-                    color: {text_color};
-                    font-family: inherit;
-                }}
-                .scroll-box {{
-                    border: 1px solid rgba(255,255,255,0.2);
-                    border-radius: 8px;
-                    padding: 12px;
-                    width: 100%;
-                    max-height: 300px;
-                    overflow-y: auto;
-                    overflow-x: hidden;
-                    -webkit-overflow-scrolling: touch;
-                    background: {bg_color};
-                    color: {text_color};
-                }}
-                .scroll-box img {{ max-width:100%; height:auto; display:block; }}
-                .scroll-box table {{ width:100%; table-layout:fixed; word-break:break-word; }}
+                    /* Base page style */
+                    @page {{
+                        size: A4;
+                        margin: 40px;
+                    }}
+                    body {{
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                        color: #333;
+                        line-height: 1.6;
+                    }}
+
+                    /* Header styles */
+                    h1, h2, h3 {{
+                        color: #1a4e8a;
+                        margin-top: 30px;
+                        margin-bottom: 10px;
+                    }}
+                    h1 {{
+                        text-align: center;
+                        font-size: 28px;
+                        border-bottom: 3px solid #1a4e8a;
+                        padding-bottom: 10px;
+                    }}
+                    h2 {{
+                        font-size: 20px;
+                        border-left: 5px solid #1a4e8a;
+                        padding-left: 10px;
+                        margin-top: 40px;
+                    }}
+                    h3 {{
+                        font-size: 16px;
+                        margin-top: 25px;
+                    }}
+
+                    /* Paragraph and list styles */
+                    p {{
+                        font-size: 14px;
+                        margin: 6px 0;
+                    }}
+                    ul {{
+                        margin: 8px 0 8px 25px;
+                    }}
+                    li {{
+                        margin-bottom: 4px;
+                    }}
+
+                    /* Table styles (for test results if you add them) */
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                        font-size: 13px;
+                    }}
+                    th, td {{
+                        border: 1px solid #ccc;
+                        padding: 8px 10px;
+                        text-align: left;
+                    }}
+                    th {{
+                        background-color: #f0f4f9;
+                        color: #1a4e8a;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f9f9f9;
+                    }}
+
+                    /* Section box highlight (optional) */
+                    .section {{
+                        background: #fdfdfd;
+                        border: 1px solid #e0e0e0;
+                        border-radius: 6px;
+                        padding: 15px 20px;
+                        margin-bottom: 25px;
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                    }}
+
+                    /* Footer */
+                    footer {{
+                        text-align: center;
+                        font-size: 10px;
+                        color: #999;
+                        margin-top: 40px;
+                    }}
                 </style>
             </head>
             <body>
-                <div class="scroll-box">
-                {llm_response}
-                </div>
+                <h1>Validation Summary Report</h1>
+                {llm_response_html}
+                <footer>Generated on {datetime.now().strftime("%Y-%m-%d")}</footer>
             </body>
             </html>
             """
-            #components.html(iframe_html, height=320, scrolling=True)
-            components.html(iframe_html, height=320)
+
+            pdf_bytes = HTML(string=full_html_for_pdf).write_pdf()
+            pdf_file = BytesIO(pdf_bytes)
+
+            # ----- Toolbar below the box -----
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            toolbar_col1, toolbar_col2 = st.columns([6, 2])
+            with toolbar_col2:
+                st.download_button(
+                    "⬇️ Download PDF",
+                    data=pdf_file,
+                    file_name=f"Validation_Summary_Report_{timestamp}.pdf",
+                    mime="application/pdf"
+                )
+
             st.markdown("---")
         else:
             st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")

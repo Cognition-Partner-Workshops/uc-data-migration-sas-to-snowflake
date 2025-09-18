@@ -11,7 +11,6 @@ from lineage.lineage_functions import collect_direct_target_jobs
 #1. Initiate Google Gemini
 # Get the API key from environment variables
 api_key = os.environ.get("GEMINI_API_KEY")
-api_key = "AIzaSyB1GhS5BVJH6PkZaBZT0Gx"
 if not api_key:
     raise ValueError("GEMINI_API_KEY environment variable not set")
 
@@ -34,7 +33,7 @@ def transformation_details(platform, jobs, table):
 #-----------------------------------------------------------------------------------------
 #generate a prompt with lineage, upstream tables, error tables and validation_results_run2
 #-----------------------------------------------------------------------------------------
-def generate_llm_summary(upstream_tables,error_tables,validation_results,sas_lineage_pickle, sf_lineage_pickle):
+def generate_llm_summary(upstream_tables,error_tables, validation_results, sas_lineage_pickle, sf_lineage_pickle):
     #Step 1: Collect additional information about the transformation jobs for each error tables 
     #        If this is the firt table of the lineage there is no job information
     transformation_job_details = []
@@ -48,13 +47,11 @@ def generate_llm_summary(upstream_tables,error_tables,validation_results,sas_lin
         transformation_job_details.append(transformation_details("Snoflake", sf_jobs, table))
 
     #Step 2: Generate Prompt
-    #print(">>>\nPrinting from LLM")
-
     prompt = f"""
     You are a data migration validation expert. You are given the results of a post-migration
     validation and reconciliation between legacy SAS tables and Snowflake tables.
 
-    Your task is to generate a clear, concise, and professional HTML report body (HTML <body> only, no <html> or <head> tags)
+    Your task is to generate a clear, concise, and professional HTML report body (HTML <DIV> only, no <HTML>, <HEAD> or <BODY> tags)
     summarizing:
 
     1. The scope: Validations test are conducted on all Upstream Tables listed below.
@@ -74,29 +71,39 @@ def generate_llm_summary(upstream_tables,error_tables,validation_results,sas_lin
     7. Root cause analysis based on the validation failures and the code snippets.
     8. Provide a summary conclusion highlighting data quality risks and suggested fixes.
 
-    Use the following input data:
-
-    **Validation Results:**
-    {validation_results}
-
-    **List of all Upstream Tables assessed:**
-    {upstream_tables}
-
-    **Tables with validation errors:**
-    {error_tables}
-
-    **Details on the Transformation Jobs loading the tables with validation errors:**
-    {"\n ".join(transformation_job_details)}
-
     Output strictly valid HTML for <body> only, using semantic structure:
     - Use <section> for major sections like Scope, Findings, Root Cause, and Recommendations.
-    - Use <table> to tabulate validation results (columns: Table, Column, Metric, SAS Value, Snowflake Value, Status).
-    - Use <pre><code> for showing code snippets.
-    - Use <ul> and <li> for bullet lists.
+
+    - The Scope section should summarize: 
+        1. List of tables compared as per List of all Upstream Tables assessed
+        **List of all Upstream Tables assessed:**
+        {upstream_tables}
+
+    - The Findings section should summarize:
+        1. Display all the Validation Results which is a list of all test conducted and status as pass or fail as a table
+        **Validation Results:**
+        {validation_results}
+        2. The list of tables where the validations or comparisons have failed as per error_tables
+        **Tables with validation errors:**
+        {error_tables}
+        3. Summarize the Validation Results considering the test results and error tables
+
+    - The Root Cause section 
+        1. Should summarize Details on the Transformation Jobs loading the tables having validation errors
+        **Details on the Transformation Jobs loading the tables having validation errors:**
+        {"\n ".join(transformation_job_details)}
+        
+    - The Recommendations section should consider that
+        1. SAS is a legacy platform 
+        2. Snowflake is the moder platform where SAS data and processes are migrated
+        3. Any changes has to be made on the Snoflake side and should match the SAS outcomes
+    
+    Formatting:
+    Use <pre><code> for showing code snippets only if there is a code available to display.
+    Use <ul> and <li> for bullet lists.
 
     The tone should be executive-friendly but precise and technical enough for engineering teams.
     """
-    #print(prompt)
     #Step 3: Get LLM response
 
     ### This section marked ### is to use Hugging Face model APIs
@@ -121,17 +128,22 @@ def generate_llm_summary(upstream_tables,error_tables,validation_results,sas_lin
     try:
         model = genai.GenerativeModel("gemini-1.5-flash") #gemini-1.5-flash
         generation_config = genai.GenerationConfig(
-            max_output_tokens=512,
+            max_output_tokens=4096,
             temperature=0.2,
             top_p=0.8,
-            #response_mime_type="application/json",
+            response_mime_type="text/plain",
         )
 
-        #llm_response = model.generate_content(
-        #    prompt,
-        #    generation_config=generation_config
-        #)
-        llm_response = model.generate_content(prompt)
+        #prompt = "give me a python code for adding two strings Str1 and Str2"
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
+        response_text = response.text.strip()
+        llm_response = response_text.replace("```html", "").replace("```", "").replace("\n", "").replace("\t", "").strip()
+
+        #print(">>>\nPrinting from LLM")
+        print(validation_results)
     except Exception as e:
         llm_response = f"# Error accessing Gemini: {e}"
 
