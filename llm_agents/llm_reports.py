@@ -143,7 +143,6 @@ def generate_llm_summary(upstream_tables,error_tables, validation_results, sas_l
         llm_response = response_text.replace("```html", "").replace("```", "").replace("\n", "").replace("\t", "").strip()
 
         #print(">>>\nPrinting from LLM")
-        print(validation_results)
     except Exception as e:
         llm_response = f"# Error accessing Gemini: {e}"
 
