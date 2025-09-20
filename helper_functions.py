@@ -221,7 +221,7 @@ def DEPRECIATED_update_validations_in_csv(sas_table_name: str, validations_list:
             }
             validations_df.loc[len(validations_df)] = new_row
             changed_rules.append(new_row)
-            print(f"Debug>>\n{validations_df}")
+            #print(f"Debug>>\n{validations_df}")
         else:
             # Rule exists → update Hash File path/code if changed
             idx = existing_rule.index[0]
@@ -257,15 +257,29 @@ def DEPRECIATED_update_validations_in_csv(sas_table_name: str, validations_list:
         print("No new or updated rules.")
         #return False, pd.DataFrame()
 
+# ------------------------------------------------------------------------
+#Function to Read Validations rules to CSV file
+# ------------------------------------------------------------------------
 def load_validations_from_csv(sas_table_name: str):
     # Load CSV if it exists
     if os.path.exists(VALIDATIONS_CSV):
-        validations_df = pd.read_csv(VALIDATIONS_CSV)
+        validations_df = pd.read_csv(VALIDATIONS_CSV, keep_default_na=False, na_values=[""])
+        # Convert relevant columns to string
+        for col in ["rule", "column", "hash_df", "code"]:
+            validations_df[col] = validations_df[col].astype(str)
+        # Normalize column values: blank/empty/whitespace → "NA"
+        validations_df["column"] = validations_df["column"].apply(
+            lambda x: "NA" if not x.strip() else x
+        )
+        #validations_df["hash_df"] = validations_df["hash_df"].apply(
+        #    lambda x: "NA" if not x.strip() else x
+        #)
     else:
         validations_df = pd.DataFrame(
             columns=["rule_id", "table", "rule", "column", "hash_df", "code"]
         )
 
+    #print(f"Debug>>\n{validations_df}")
     # Filter by table name
     filtered_df = validations_df[validations_df["table"] == sas_table_name]
 
@@ -273,8 +287,12 @@ def load_validations_from_csv(sas_table_name: str):
     selected_df = filtered_df[["rule", "column", "hash_df", "code"]]
 
     # Convert to list of dicts
+    #print(f"Debug>>\n{selected_df.to_dict(orient="records")}")
     return selected_df.to_dict(orient="records")
 
+# ------------------------------------------------------------------------
+#Function to persist rules to CSV file
+# ------------------------------------------------------------------------
 def update_validations_in_csv(sas_table_name: str, validations_list: list):
     """
     Save validations_list to CSV, adding rule_id and table columns.

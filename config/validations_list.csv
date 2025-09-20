@@ -1,3 +1,4 @@
 rule_id,table,rule,column,hash_df,code
 1,MONTHLY_AMB,Row Count,NA,NA,NA
-2,MONTHLY_AMB,Distinct Count,account_id,NA,NA
+2,MONTHLY_AMB,Sum Amount,customer_id,NA,NA
+3,MONTHLY_AMB,Distinct Count,account_id,NA,NA

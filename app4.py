@@ -78,7 +78,9 @@ def load_datasets(file_name: str, platform: str, qualified=True):
 
     return df
 
+# ------------------------------------------------------------------------
 #Print lineage graph
+# ------------------------------------------------------------------------
 def print_lineage_graph(platform: str, table_name: str, reproduce=False):
     if platform == "SAS":
         net_key = "sas_lineage"
@@ -117,7 +119,9 @@ def show_lineage_graph(title, sas_table_name, sf_table_name, reproduce=False):
 
         with sf_col:
             print_lineage_graph("SF", sf_table_name, reproduce)
-
+# ------------------------------------------------------------------------
+# Check Up Stream Dependencies and plot Lineage 
+# ------------------------------------------------------------------------
 def check_up_stream_dependencies():
 # ---------------------------
 # Repeat validations for the upstream dataset until clean
@@ -203,6 +207,10 @@ def check_up_stream_dependencies():
         st.markdown("---")
     st.session_state["upstream_dependencies_checked"] = True
 
+# ------------------------------------------------------------------------
+# Display Validation Summary Report
+# ------------------------------------------------------------------------
+import base64
 def display_validation_test_summary():
 # ---------------------------
 # Test Report: Summarize all failures using a LLM
@@ -393,16 +401,57 @@ def display_validation_test_summary():
             pdf_bytes = HTML(string=full_html_for_pdf).write_pdf()
             pdf_file = BytesIO(pdf_bytes)
 
-            # ----- Toolbar below the box -----
+            ## ----- Toolbar below the box -----
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            toolbar_col1, toolbar_col2 = st.columns([6, 2])
-            with toolbar_col2:
-                st.download_button(
-                    "⬇️ Download PDF",
-                    data=pdf_file,
-                    file_name=f"Validation_Summary_Report_{timestamp}.pdf",
-                    mime="application/pdf"
-                )
+            #toolbar_col1, toolbar_col2 = st.columns([6, 2])
+            #with toolbar_col2:
+            #    st.download_button(
+            #        "⬇️ Download PDF",
+            #        data=pdf_file,
+            #        file_name=f"Validation_Summary_Report_{timestamp}.pdf",
+            #        mime="application/pdf"
+            #    )
+            #Javascript Download Button
+            # Convert PDF to base64
+            pdf_base64 = base64.b64encode(pdf_file.getvalue()).decode("utf-8")
+
+            # Create custom floating download button with HTML+CSS+JS
+            custom_button_html = f"""
+            <style>
+            #download-btn {{
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                background-color: #4A90E2;
+                color: white;
+                border: none;
+                padding: 14px 22px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+                z-index: 9999;
+                transition: background-color 0.3s ease;
+            }}
+            #download-btn:hover {{
+                background-color: #357ABD;
+            }}
+            </style>
+
+            <button id="download-btn">⬇️ Download PDF</button>
+            <script>
+            document.getElementById("download-btn").addEventListener("click", function() {{
+                var link = document.createElement('a');
+                link.href = "data:application/pdf;base64,{pdf_base64}";
+                link.download = "Validation_Summary_Report_{timestamp}.pdf";
+                link.click();
+            }});
+            </script>
+            """
+
+            # Render custom button in Streamlit
+            #st.markdown(custom_button_html, unsafe_allow_html=True)
 
             st.markdown("---")
         else:
@@ -516,6 +565,15 @@ if sas_file and st.session_state.sas_table_name == "":
     except Exception as e:
         st.error(f"❌ Error reading SAS dataset: {e}")
         st.stop()
+elif sas_file is None:
+    #The selected file is removed
+    st.session_state.sas_df = None
+    st.session_state.sf_df = None
+    st.session_state.sas_table_name = ""
+    st.session_state.sf_table_name = ""
+    st.session_state.SAS_path = ""
+    st.session_state.SF_path = ""
+    st.rerun()
 
 #if sf_file and not st.session_state.sf_loaded:
 #    try:
