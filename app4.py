@@ -566,14 +566,8 @@ if sas_file and st.session_state.sas_table_name == "":
         st.error(f"❌ Error reading SAS dataset: {e}")
         st.stop()
 elif sas_file is None:
-    #The selected file is removed
-    st.session_state.sas_df = None
-    st.session_state.sf_df = None
-    st.session_state.sas_table_name = ""
-    st.session_state.sf_table_name = ""
-    st.session_state.SAS_path = ""
-    st.session_state.SF_path = ""
-    st.rerun()
+    st.info("Please upload SAS dataset to start building validation rules.")
+    st.stop()
 
 #if sf_file and not st.session_state.sf_loaded:
 #    try:
