@@ -161,3 +161,148 @@ def validate_datasets(validations_list: list,
     
     return any_failures, results_df
 
+
+# ------------------------------------------------------------------------
+#Function to persist rules to CSV file
+# ------------------------------------------------------------------------
+import os
+
+VALIDATIONS_CSV = "./config/validations_list.csv"
+def DEPRECIATED_update_validations_in_csv(sas_table_name: str, validations_list: list):
+    """
+    Update dq_rules_config.csv with validations_list.
+    - If no matching rule exists → insert new row
+    - If matching rule exists → update in place (no duplicate row)
+    - Return only the inserted/updated rules (or empty df if no change)
+    """
+
+    if os.path.exists(VALIDATIONS_CSV):
+        validations_df = pd.read_csv(VALIDATIONS_CSV, keep_default_na=False)
+        # Convert relevant columns to string
+        for col in ["rule", "column", "hash_df", "code"]:
+            validations_df[col] = validations_df[col].astype(str)
+        # Normalize column values: blank/empty/whitespace → "NA"
+        validations_df["column"] = validations_df["column"].apply(
+            lambda x: "NA" if not x.strip() else x
+        )
+        #validations_df["hash_df"] = validations_df["hash_df"].apply(
+        #    lambda x: "NA" if not x.strip() else x
+        #)
+    else:
+        validations_df = pd.DataFrame(columns=["rule_id", "table", "rule","column","hash_df","code"])
+
+    int_validations_counter = validations_df.shape[0]  # total existing rules
+    changed_rules = []  # store only inserted/updated rules
+
+    for rule in validations_list:
+        # Filter existing rules for the same table, attribute, dq_dimension
+        # Ensure "column" is always a string and replace null/blank/whitespace with "NA"
+        rule_column = rule["column"]
+        if not rule_column or str(rule_column).strip() == "":
+            rule_column = "NA"
+
+        mask = (
+            (validations_df["table"] == sas_table_name) &
+            (validations_df["rule"] == rule["rule"]) &
+            (validations_df["column"].fillna("NA") == rule_column)
+        )
+        existing_rule = validations_df[mask]
+
+        if existing_rule.empty:
+            # Completely new rule → add
+            int_validations_counter += 1
+            new_row = {
+                "rule_id": int_validations_counter,
+                "table": sas_table_name,
+                "rule": rule["rule"],
+                "column": rule_column,
+                "hash_df": rule["hash_df"],
+                "code": rule["code"]
+            }
+            validations_df.loc[len(validations_df)] = new_row
+            changed_rules.append(new_row)
+            print(f"Debug>>\n{validations_df}")
+        else:
+            # Rule exists → update Hash File path/code if changed
+            idx = existing_rule.index[0]
+            if (
+                validations_df.at[idx, "hash_df"] != rule["hash_df"] or
+                validations_df.at[idx, "code"] != rule["code"]
+            ):
+                validations_df.at[idx, "hash_df"] = rule["hash_df"]
+                validations_df.at[idx, "code"] = rule["code"]
+                changed_rules.append({
+                    "rule_id": validations_df.at[idx, "rule_id"],
+                    "table": sas_table_name,
+                    "rule": rule["rule"],
+                    "column": rule_column,
+                    "hash_df": rule["hash_df"] if pd.notna(rule["hash_df"]) and str(rule["hash_df"]).strip() else "NA",
+                    "code": rule["code"]
+                })
+            else:
+                #Rule exist in CSV and not in Validations_lists - Delete
+                validations_df = validations_df[~mask]
+
+    # Save only if changes happened
+    if changed_rules:
+        # Replace null/blank/whitespace in "column" with "NA" for the whole dataframe
+        validations_df["column"] = validations_df["column"].apply(
+            lambda x: "NA" if pd.isna(x) or str(x).strip() == "" else x
+        )
+        validations_df.to_csv(VALIDATIONS_CSV, index=False)
+        changed_df = pd.DataFrame(changed_rules)
+        print(f"✅ {len(changed_df)} rule(s) inserted/updated.")
+        #return True, changed_df
+    else:
+        print("No new or updated rules.")
+        #return False, pd.DataFrame()
+
+def load_validations_from_csv(sas_table_name: str):
+    # Load CSV if it exists
+    if os.path.exists(VALIDATIONS_CSV):
+        validations_df = pd.read_csv(VALIDATIONS_CSV)
+    else:
+        validations_df = pd.DataFrame(
+            columns=["rule_id", "table", "rule", "column", "hash_df", "code"]
+        )
+
+    # Filter by table name
+    filtered_df = validations_df[validations_df["table"] == sas_table_name]
+
+    # Keep only required columns
+    selected_df = filtered_df[["rule", "column", "hash_df", "code"]]
+
+    # Convert to list of dicts
+    return selected_df.to_dict(orient="records")
+
+def update_validations_in_csv(sas_table_name: str, validations_list: list):
+    """
+    Save validations_list to CSV, adding rule_id and table columns.
+    - sas_table_name: table name to add to all rows
+    - validations_list: list of dicts containing rules
+    - filepath: CSV path to save
+    """
+    
+    if not validations_list:
+        print("No validations to save.")
+        return
+    
+    # Convert list of dicts to DataFrame
+    df = pd.DataFrame(validations_list)
+
+    # Normalize columns to ensure no NaN/blank
+    for col in ["rule", "column", "hash_df", "code"]:
+        df[col] = df[col].apply(lambda x: str(x).strip() if x else "NA")
+
+    # Add table column
+    df["table"] = sas_table_name
+
+    # Add rule_id (sequential starting from 1)
+    df.insert(0, "rule_id", range(1, len(df) + 1))
+
+    desired_order = ["rule_id", "table", "rule", "column", "hash_df", "code"]
+    df = df[desired_order]
+
+    # Overwrite CSV
+    df.to_csv(VALIDATIONS_CSV, index=False)
+    print(f"✅ {len(df)} validations saved to {VALIDATIONS_CSV} (overwritten)")

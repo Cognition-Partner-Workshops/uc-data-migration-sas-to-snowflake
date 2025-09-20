@@ -21,6 +21,14 @@ import streamlit.components.v1 as components
 # ------------------------------------------------------------------------
 # Session State Initialization
 # ------------------------------------------------------------------------
+from lineage.lineage_functions import generate_lineage_graph, collect_upstream_tables
+from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets
+from helper_functions import load_validations_from_csv, update_validations_in_csv
+from llm_agents.llm_reports import generate_llm_summary
+
+sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
+sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
+
 if "validations_list" not in st.session_state:
     st.session_state.validations_list = []
 
@@ -47,22 +55,11 @@ if "any_failures_run2" not in st.session_state:
 # ------------------------------------------------------------------------
 # Common Functions
 # ------------------------------------------------------------------------
-#from lineage.lineage_functions import add_lineage_to_pyvis, load_lineage_graph, mark_current_and_error_nodes, build_lineage_legend
-from lineage.lineage_functions import generate_lineage_graph, collect_upstream_tables
-from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets
-from llm_agents.llm_reports import generate_llm_summary
-
-sas_lineage_pickle = "./lineage/SAS_lineage_graph.pkl"
-sf_lineage_pickle = "./lineage/SF_lineage_graph.pkl"
-
-SAS_directory=  "./sample_data/"
-SF_directory = "./sample_data/Scenario2/"
-
 #Function to load SAS Datasets to a Dataframe
 def load_datasets(file_name: str, platform: str, qualified=True):
     if platform == "SAS":
         if not qualified:
-            file_name = SAS_directory + file_name + ".sas7bdat"
+            file_name = st.session_state.SAS_path + file_name + ".sas7bdat"
 
         # Pandas will auto-detect format
         df = pd.read_sas(file_name, format="sas7bdat")
@@ -71,10 +68,11 @@ def load_datasets(file_name: str, platform: str, qualified=True):
         df = df.map(decode_value)
     elif platform == "SF": 
         if not qualified:
-            file_name = SF_directory + file_name + ".csv"
+            file_name = st.session_state.SF_path + file_name + ".csv"
             df = pd.read_csv(file_name)
         else:
-            df = pd.read_csv(io.StringIO(file_name.getvalue().decode("utf-8")))
+            #df = pd.read_csv(io.StringIO(file_name.getvalue().decode("utf-8")))
+            df = pd.read_csv(file_name)
     else:
         df = None
 
@@ -85,7 +83,7 @@ def print_lineage_graph(platform: str, table_name: str, reproduce=False):
     if platform == "SAS":
         net_key = "sas_lineage"
         if net_key not in st.session_state or reproduce:
-            sas_html = generate_lineage_graph(sas_lineage_pickle, sas_table_name, None)
+            sas_html = generate_lineage_graph(sas_lineage_pickle, st.session_state.sas_table_name, None)
             st.session_state[net_key] = sas_html
         else:
             sas_html = st.session_state[net_key]
@@ -134,12 +132,12 @@ def check_up_stream_dependencies():
 
         st.session_state.upstream_tables = []
 
-        new_val = {"table": sf_table_name, "rank": 0}
+        new_val = {"table": st.session_state.sf_table_name, "rank": 0}
         st.session_state.upstream_tables.append(new_val)
 
         # Collect recursively
         st.session_state.upstream_tables.extend(
-            collect_upstream_tables(sf_lineage_pickle, sf_table_name)
+            collect_upstream_tables(sf_lineage_pickle, st.session_state.sf_table_name)
         )
 
         #Run a loop on st.session_state.upstream_tables to validate all the tables in the list
@@ -159,8 +157,8 @@ def check_up_stream_dependencies():
             # Example: load data for each table
             try:
                 # Try loading the data
-                sas_df = load_datasets(table_name, "SAS", False)
-                sf_df = load_datasets(table_name, "SF", False)
+                st.session_state.sas_df = load_datasets(table_name, "SAS", False)
+                st.session_state.sf_df = load_datasets(table_name, "SF", False)
 
             except FileNotFoundError as e:
                 st.warning(f"Skipping {table_name}: {e}")
@@ -169,9 +167,9 @@ def check_up_stream_dependencies():
             # Run validation
             st.session_state["any_failures_run2"], new_results = validate_datasets(
                 st.session_state.validations_list, 
-                sas_df,
+                st.session_state.sas_df,
                 table_name,
-                sf_df,
+                st.session_state.sf_df,
                 table_name
             )
 
@@ -193,14 +191,14 @@ def check_up_stream_dependencies():
         st.error(f"❌ Reconcillation Failures Observed for Table: {st.session_state.error_tables[-1]}")
         st.markdown("---")
     else:
-        st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
+        st.success(f"✔️ No Reconcillation Failures Observed for Table: {st.session_state.sf_table_name}")
         st.markdown("---")
 
     #Printe the lineage graph again if more failures are detected
     if len(st.session_state.error_tables) > 1:
         show_lineage_graph("🔗Lineage Graph for {len(st.session_state.error_tables)} Failures",
-                         sas_table_name,
-                         sf_table_name, 
+                         st.session_state.sas_table_name,
+                         st.session_state.sf_table_name, 
                          reproduce=True)
         st.markdown("---")
     st.session_state["upstream_dependencies_checked"] = True
@@ -408,7 +406,7 @@ def display_validation_test_summary():
 
             st.markdown("---")
         else:
-            st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
+            st.success(f"✔️ No Reconcillation Failures Observed for Table: {st.session_state.sf_table_name}")
             st.markdown("---")
 
 # ------------------------------------------------------------------------
@@ -444,9 +442,24 @@ if st.sidebar.button("🔄 Reset App"):
     #st.rerun()
     st.rerun(scope="app")
 
+#Select Environments
+# Example predefined SF file locations
+sf_file_options = {
+    "Development (Scenario 3)": "./sample_data/Scenario2/",
+    "Integration Test (Scenario 2)": "./sample_data/Scenario1/",
+    "Production (Scenario 1)": "./sample_data/"
+}
+
+#st.sidebar.write("### Choose Environment")
+
+# Use radio buttons for single selection
+selected_sf_source = st.sidebar.radio(
+    "Select Environment (Scenario):",
+    options=list(sf_file_options.keys())
+)
+
 # Upload files
-st.sidebar.header("Upload Data")
-#sas_file = st.sidebar.file_uploader("Upload SAS dataset (.sas7bdat or .xpt)", type=["sas7bdat", "xpt"])
+st.sidebar.header("Upload SAS Dataset for Validation")
 # File uploader with a fixed key
 sas_file = st.sidebar.file_uploader(
     "Upload SAS dataset (.sas7bdat or .xpt)",
@@ -456,50 +469,80 @@ sas_file = st.sidebar.file_uploader(
 
 #sf_file = st.sidebar.file_uploader("Upload Snowflake migrated data (CSV)", type=["csv"])
 # File uploader with a fixed key
-sf_file = st.sidebar.file_uploader(
-    "Upload Snowflake migrated data (*.csv)",
-    type=["csv"],
-    key="sf_file"  # fixed key to track uploader
-)
-sas_df = None
-sf_df = None
+#sf_file = st.sidebar.file_uploader(
+#    "Upload Snowflake migrated data (*.csv)",
+#    type=["csv"],
+#    key="sf_file"  # fixed key to track uploader
+#)
+# Initialize session state
+if "sas_table_name" not in st.session_state:
+    st.session_state.sas_df = None
+    st.session_state.sf_df = None
+    st.session_state.sas_table_name = ""
+    st.session_state.sf_table_name = ""
+    st.session_state.SAS_path = ""
+    st.session_state.SF_path = ""
 
-if sas_file:
+if sas_file and st.session_state.sas_table_name == "":
     try:
         #Load SAS datasets to a DataFrame
-        sas_df = load_datasets(sas_file, "SAS")
-        sas_df.columns = sas_df.columns.str.lower()
-        sas_table_name = os.path.splitext(sas_file.name)[0]  # remove extension
+        st.session_state.SAS_path = "./sample_data/"
+        st.session_state.sas_df = load_datasets(sas_file, "SAS")
+        st.session_state.sas_df.columns = st.session_state.sas_df.columns.str.lower()
+        st.session_state.sas_table_name = os.path.splitext(sas_file.name)[0]  # remove extension
+        sas_table_name=st.session_state.sas_table_name
 
-        st.success(f"SAS dataset loaded: {sas_df.shape[0]} rows, {sas_df.shape[1]} cols")
+        st.success(f"SAS dataset loaded: {st.session_state.sas_df.shape[0]} rows, {st.session_state.sas_df.shape[1]} cols")
+        #Load the persisted validations for this table
+        # Load validations only first time
+        st.session_state.validations_list = load_validations_from_csv(sas_table_name)
+
+        # Mark as processed
+        st.session_state.sas_loaded = True
+
+        #Auto select the Snowflake CSV based on selected Scenario
+        st.session_state.SF_path = sf_file_options[selected_sf_source]
+        try:
+            #Assumption: SAS and Sowflake will have the same table names 
+            # - otherwise a mapping needs to be stored and retrieved
+            st.session_state.sf_table_name= st.session_state.sas_table_name
+            st.session_state.sf_df = load_datasets(st.session_state.sf_table_name, "SF", False)
+            #st.session_state.sf_table_name = os.path.splitext(sf_path.name)[0]  # remove extension
+            st.success(f"Snowflake CSV loaded: {st.session_state.sf_df.shape[0]} rows, {st.session_state.sf_df.shape[1]} cols")
+            st.session_state.sf_loaded = True
+        except Exception as e:
+            st.error(f"❌ Error reading CSV: {e}")
+            st.stop()
     except Exception as e:
         st.error(f"❌ Error reading SAS dataset: {e}")
+        st.stop()
 
-if sf_file:
-    try:
-        sf_df = load_datasets(sf_file, "SF")
-        sf_table_name = os.path.splitext(sf_file.name)[0]  # remove extension
-
-        st.success(f"Snowflake CSV loaded: {sf_df.shape[0]} rows, {sf_df.shape[1]} cols")
-    except Exception as e:
-        st.error(f"❌ Error reading Snowflake CSV: {e}")
+#if sf_file and not st.session_state.sf_loaded:
+#    try:
+#        st.session_state.sf_df = load_datasets(sf_file, "SF")
+#        st.session_state.sf_table_name = os.path.splitext(sf_file.name)[0]  # remove extension
+#
+#        st.success(f"Snowflake CSV loaded: {st.session_state.sf_df.shape[0]} rows, {st.session_state.sf_df.shape[1]} cols")
+#        # Mark as processed
+#        st.session_state.sf_loaded = True
+#    except Exception as e:
+#        st.error(f"❌ Error reading Snowflake CSV: {e}")
 
 
 # ---------------------------
 # Preview Selected Datasets
 # ---------------------------
-if sas_df is not None and sf_df is not None:
+if st.session_state.sas_df is not None and st.session_state.sf_df is not None:
     st.subheader("📊 Preview Uploaded Datasets")
     tab1, tab2 = st.tabs(["Preview SAS Dataset", "Preview Snowflake Dataset"])
     with tab1:
-        st.subheader(f"**SAS Baseline : {sas_table_name} **")
-        #st.dataframe(sas_df.head(), hide_index=True)
-        st.table(sas_df.head())
+        st.subheader(f"**SAS Baseline : {st.session_state.sas_table_name} **")
+        st.table(st.session_state.sas_df.head())
         #st.image("https://static.streamlit.io/examples/cat.jpg", width=200)
     with tab2:
-        st.subheader(f"**Snowflake Data: {sf_table_name} **")
-        #st.dataframe(sf_df.head(), hide_index=True)
-        st.table(sf_df.head())
+        st.subheader(f"**Snowflake Data: {st.session_state.sf_table_name} **")
+        #st.dataframe(st.session_state.sf_df.head(), hide_index=True)
+        st.table(st.session_state.sf_df.head())
 
 # ---------------------------
 # Validation Selection - Configuration
@@ -521,31 +564,44 @@ if sas_df is not None and sf_df is not None:
 
     with col2:
         if rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]:
-            suggestions = suggest_columns_for_rule(rule.lower().replace(" ", "_"), sas_df)
+            suggestions = suggest_columns_for_rule(rule.lower().replace(" ", "_"), st.session_state.sas_df)
             selected_col = st.selectbox(
                 "Select Column",
-                options=sas_df.columns,
-                index=0 if suggestions == [] else sas_df.columns.get_loc(suggestions[0]),
+                options=st.session_state.sas_df.columns,
+                index=0 if suggestions == [] else st.session_state.sas_df.columns.get_loc(suggestions[0]),
                 key="col_select"
             )
 
     if rule == "Row Hash":
         hash_file = st.file_uploader("Upload SAS Hash File", type=["csv"], key="hash_upload")
 
-    if st.button("➕ Add Validation"):
-        new_val = {
-            "rule": rule,
-            "column": selected_col if selected_col else "NA",
-            "hash_df": pd.read_csv(hash_file) if hash_file else "NA"
-        }
-        st.session_state.validations_list.append(new_val)
-        st.success(f"Added validation: {new_val}")
-        st.session_state["display_results"] = False
+    if st.button("➕ Add Validation", key=f"{rule}_{selected_col}_add_rule"):
+        # Find existing rule by table + attribute + dq_dimension
+        selected_col = selected_col if selected_col else "NA"
+        match = next(
+            (r for r in st.session_state.validations_list
+            if r["rule"] == rule
+            and r["column"] == selected_col),
+            None
+        )
 
-        #Reset all session statesfor validations
+        if match:
+            st.info("This rule already exists. ✅")
+        else:
+            st.session_state.validations_list.append({
+                "rule": rule,
+                "column": selected_col.strip() if selected_col and selected_col.strip() else "NA",
+                "hash_df": pd.read_csv(hash_file) if hash_file else "NA",
+                "code": ""
+            })
+            st.success("Rule added successfully. ➕")
+            
+        #Reset all session states for any changes to validations
+        st.session_state["any_failures"] = None
+        st.session_state["display_results"] = False
+        st.session_state["any_failures_run2"] = None
         st.session_state["validation_results"] = None
         st.session_state["validation_results_run2"] = None
-        st.session_state["any_failures"] = None
         st.session_state["upstream_dependencies_checked"] = False
 # ---------------------------
 # Show Persisted List
@@ -556,21 +612,32 @@ if sas_df is not None and sf_df is not None:
         st.info("No validations added yet.")
         st.session_state["display_results"] = False
     else:
-        #st.table(st.session_state.validations_list)
-        #df = pd.DataFrame(st.session_state.validations_list)
+        # Convert validations list to DataFrame
+        df = pd.DataFrame(st.session_state.validations_list)
+        # Only keep desired columns, rename headers
+        df = df[["rule", "column", "hash_df"]].rename(
+            columns={"rule": "Rule", "column": "Column", "hash_df": "Hash File"}
+        )
+
+        # Display Validations
         event = st.dataframe(
-                pd.DataFrame(st.session_state.validations_list),
-                use_container_width=True,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="multi-row",
-                )
+            df,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="multi-row",
+        )
+
+        # Delete button
         selected_validations = event.selection.rows
         if selected_validations:
             if st.button("❌ Delete Selected Validations"):
                 st.session_state.validations_list = [
-                item for i, item in enumerate(st.session_state.validations_list) if i not in selected_validations
+                item for i, item in enumerate(st.session_state.validations_list) 
+                if i not in selected_validations
                 ]
+                print (st.session_state.validations_list)
+                update_validations_in_csv(st.session_state.sas_table_name, st.session_state.validations_list)
                 st.rerun()
 
 
@@ -585,6 +652,8 @@ if sas_df is not None and sf_df is not None:
             st.session_state["display_results"] = False
             st.stop()
         else:
+            #Update Validations to CSV
+            update_validations_in_csv(st.session_state.sas_table_name, st.session_state.validations_list)
             #Reset all session statesfor validations
             st.session_state["validation_results"] = None
             st.session_state["validation_results_run2"] = None
@@ -593,17 +662,17 @@ if sas_df is not None and sf_df is not None:
     
             st.session_state["any_failures"], st.session_state["validation_results"]  = validate_datasets(
                 st.session_state.validations_list, 
-                sas_df,
-                sas_table_name,
-                sf_df,
-                sf_table_name
+                st.session_state.sas_df,
+                st.session_state.sas_table_name,
+                st.session_state.sf_df,
+                st.session_state.sf_table_name
                 )
             #Reset the lineage for each change in validations (button clicked)
             st.session_state.pop("sas_lineage", None)
             st.session_state.pop("sf_lineage", None)
 
             st.session_state.error_tables = []
-            st.session_state.error_tables.append(sf_table_name)
+            st.session_state.error_tables.append(st.session_state.sf_table_name)
     #End if - Run all Validations
 # ---------------------------
 # Show Validations Results
@@ -620,7 +689,7 @@ if sas_df is not None and sf_df is not None:
             st.markdown("---")
 
             #Show Lineage
-            show_lineage_graph("🔗Lineage", sas_table_name, sf_table_name)
+            show_lineage_graph("🔗Lineage", st.session_state.sas_table_name, st.session_state.sf_table_name)
             st.markdown("---")
 
             if st.button("⬆️🔗❓ Check Upstream Dependencies?"):
@@ -633,7 +702,7 @@ if sas_df is not None and sf_df is not None:
                 with st.spinner("Generating Summary Report..."):
                     display_validation_test_summary()
         else:
-            st.success(f"✔️ No Reconcillation Failures Observed for Table: {sf_table_name}")
+            st.success(f"✔️ No Reconcillation Failures Observed for Table: {st.session_state.sf_table_name}")
             st.markdown("---")
             st.session_state["display_results"] = False
             st.stop()
