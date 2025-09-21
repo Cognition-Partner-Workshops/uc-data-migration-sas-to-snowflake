@@ -200,7 +200,7 @@ def check_up_stream_dependencies():
 
     #Printe the lineage graph again if more failures are detected
     if len(st.session_state.error_tables) > 1:
-        show_lineage_graph("🔗Lineage Graph for {len(st.session_state.error_tables)} Failures",
+        show_lineage_graph(f"🔗Lineage Graph for {len(st.session_state.error_tables)} Failures",
                          st.session_state.sas_table_name,
                          st.session_state.sf_table_name, 
                          reproduce=True)
@@ -266,6 +266,7 @@ def display_validation_test_summary():
             {llm_response_html}
             </div>
             """
+#BUG: The report table needs to be truncated - change HTML content
             # CSS for UI only (does NOT go into the PDF)
             st.markdown(
                 """
@@ -459,6 +460,39 @@ def display_validation_test_summary():
             st.markdown("---")
 
 # ------------------------------------------------------------------------
+# Function to control behavioud of the dropdowns for selecting columns
+# ------------------------------------------------------------------------
+def reset_other_dropdown(changed_key, other_key):
+    #Reset all selections to default
+    if other_key == "":
+        st.session_state["col_select3"] = "-- Select --"
+    # If the current dropdown is selected, reset the other
+    elif st.session_state[changed_key] != "-- Select --":
+        st.session_state[other_key] = "-- Select --"
+
+# ------------------------------------------------------------------------
+#Function to load or save validation configurations in json
+# ------------------------------------------------------------------------
+import json
+json_file = "./config/validation_rule_config.json"
+def load_validation_config(config):
+    if config:
+        with open(json_file, "w") as f:
+            json.dump(config, f, indent=2)
+        st.session_state.validation_config = config
+    else:
+        data = []
+        # Step 1: Load file if exists
+        if os.path.exists(json_file):
+            with open(json_file, "r") as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    data = []  # fallback if file is corrupted
+        st.session_state.validation_config = data
+
+##########################################################################
+# ------------------------------------------------------------------------
 # Streamlit UI
 # ------------------------------------------------------------------------
 st.set_page_config(page_title="Agentic RAG Migration Validation", layout="wide")
@@ -499,8 +533,6 @@ sf_file_options = {
     "Production (Scenario 1)": "./sample_data/"
 }
 
-#st.sidebar.write("### Choose Environment")
-
 # Use radio buttons for single selection
 selected_sf_source = st.sidebar.radio(
     "Select Environment (Scenario):",
@@ -537,7 +569,7 @@ if sas_file and st.session_state.sas_table_name == "":
         #Load SAS datasets to a DataFrame
         st.session_state.SAS_path = "./sample_data/"
         st.session_state.sas_df = load_datasets(sas_file, "SAS")
-        st.session_state.sas_df.columns = st.session_state.sas_df.columns.str.lower()
+        #st.session_state.sas_df.columns = st.session_state.sas_df.columns.str.lower()
         st.session_state.sas_table_name = os.path.splitext(sas_file.name)[0]  # remove extension
         sas_table_name=st.session_state.sas_table_name
 
@@ -601,28 +633,84 @@ if st.session_state.sas_df is not None and st.session_state.sf_df is not None:
 # ---------------------------
     st.markdown("---")
     st.subheader("⚙️ Configure Validations")
-
-    col1, col2 = st.columns(2)
+    #Get the config file json and stor it as session variable
+    if "validation_config" not in st.session_state:
+        load_validation_config([])
+    
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         rule = st.selectbox(
             "Select Validation Type",
-            ["Row Count", "Row Hash", "Sum Amount", "Distinct Count", "Uniqueness", "Not Null"],
-            key="rule_select"
+            ["Row Count", "Sum Amount", "Distinct Count", "Uniqueness", "Not Null",  "Row Hash"],
+            key="rule_select",
+            on_change=reset_other_dropdown,
+            args=("col_select1", ""),
         )
 
     selected_col = None
     hash_file = None
 
-    with col2:
-        if rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]:
-            suggestions = suggest_columns_for_rule(rule.lower().replace(" ", "_"), st.session_state.sas_df)
-            selected_col = st.selectbox(
-                "Select Column",
-                options=st.session_state.sas_df.columns,
-                index=0 if suggestions == [] else st.session_state.sas_df.columns.get_loc(suggestions[0]),
-                key="col_select"
-            )
+    with st.spinner("Fetching AI recommendations..."):
+        with col2:
+            if rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]:
+                is_updated, config, suggestions = suggest_columns_for_rule(
+                                    st.session_state.sas_table_name,
+                                    rule.lower().replace(" ", "_"), 
+                                    st.session_state.sas_df,
+                                    st.session_state.validation_config
+                                    )
+                if is_updated:
+                    load_validation_config(config)
+
+                # Ensure suggestions is a list
+                if isinstance(suggestions, str):
+                    import ast
+                    suggestions = ast.literal_eval(suggestions)  # converts string representation of list to actual list
+
+                options = ["-- Select --"] + suggestions
+
+                # Default index logic
+                index2 = 0 if not suggestions else options.index(suggestions[0])
+
+                selected_col2 = st.selectbox(
+                    "Select AI Recommended Column",
+                    options, 
+                    index=index2,
+                    key="col_select2",
+                    on_change=reset_other_dropdown,
+                    args=("col_select2", "col_select3"),
+                )
+        with col3:
+            if rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]:
+                if "col_select3" not in st.session_state:
+                    st.session_state["col_select3"] = "-- Select --"
+                options = ["-- Select --"] + list(st.session_state.sas_df.columns)
+                selected_col3 = st.selectbox(
+                    "Select Column (All Columns)",
+                    options,
+                    key="col_select3", # don't use index when using session_state
+                    on_change=reset_other_dropdown,
+                    args=("col_select3", "col_select2")
+                )
+    #End of spinner block
+
+    # Final check: ensure at least one selected
+    if (
+        rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]
+        and st.session_state["col_select2"] == "-- Select --"
+        and st.session_state["col_select3"] == "-- Select --"
+    ):
+        st.error("⚠️ Please select a column from at least one dropdown.")
+        st.stop()
+    elif rule in ["Sum Amount", "Distinct Count", "Uniqueness", "Not Null"]:
+        # Resolve final selection
+        if st.session_state["col_select2"] != "-- Select --":
+            selected_col = st.session_state["col_select2"]
+        elif st.session_state["col_select3"] != "-- Select --":
+            selected_col = st.session_state["col_select3"]
+        else:
+            selected_col = None
 
     if rule == "Row Hash":
         hash_file = st.file_uploader("Upload SAS Hash File", type=["csv"], key="hash_upload")
@@ -688,7 +776,6 @@ if st.session_state.sas_df is not None and st.session_state.sf_df is not None:
                 item for i, item in enumerate(st.session_state.validations_list) 
                 if i not in selected_validations
                 ]
-                print (st.session_state.validations_list)
                 update_validations_in_csv(st.session_state.sas_table_name, st.session_state.validations_list)
                 st.rerun()
 

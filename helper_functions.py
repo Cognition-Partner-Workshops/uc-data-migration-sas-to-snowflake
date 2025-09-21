@@ -21,9 +21,39 @@ def decode_value(x):
     return x
 
 # ------------------------------------------------------------------------
-# Helper function: fake LLM suggestions (replace with real LLM call)
+# Helper function: LLM suggestions for columns for validation rules
 # ------------------------------------------------------------------------
-def suggest_columns_for_rule(rule, df):
+import json
+from llm_agents.agent_llm_recommendations import agent_get_col_reco
+def suggest_columns_for_rule(table_name, rule, df, config):
+    #Check if the validation-column config already exists
+    #if exist then check if the config exist for this table_name 
+    #if do not exist get LLM suggestions
+    #Function return list of columns
+
+    # Step 2: Check if table+rule already exist
+    is_updated = False
+    for entry in config:
+        if entry["table"] == table_name and entry["validation"] == rule:
+            return is_updated, config, entry["recommended_columns"]
+
+    # Step 3: Not found → Call LLM
+    recommended_columns = agent_get_col_reco(rule, df)
+
+    # Step 4: Append new result to cache
+    if recommended_columns:
+        new_entry = {
+            "table": table_name,
+            "validation": rule,
+            "recommended_columns": recommended_columns,
+        }
+        config.append(new_entry)
+        is_updated = True
+        print(config)
+
+    return is_updated, config, recommended_columns
+
+def DEPRECIATED_suggest_columns_for_rule(table_name, rule, df):
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     string_cols = df.select_dtypes(include="object").columns.tolist()
     
@@ -40,6 +70,8 @@ def suggest_columns_for_rule(rule, df):
 # ------------------------------------------------------------------------
 #Function to execute valiation rules against the dataset
 # ------------------------------------------------------------------------
+#BUG: If the column selected for validation of the primary dataser
+# do not exists in the upstream datasets it is fiailing - need to handle
 def validate_datasets(validations_list: list, 
                       sas_df: pd.DataFrame, sas_table_name, 
                       sf_df: pd.DataFrame, sf_table_name
@@ -70,67 +102,120 @@ def validate_datasets(validations_list: list,
 
         elif rule == "Sum Amount":
             col = val["column"]
-            sa_sas, sa_sf = sas_df[col].astype(float).sum(), sf_df[col].astype(float).sum()
-            status = "PASS" if abs(sa_sas - sa_sf) < 0.01 else "FAIL"
-            #results.append({"Test": "Sum", "Column": col, "SAS Row Count": sa_sas, "SF Row Count": sa_sf, "Status": status})
-            results.append({
-                "Test": "Sum",
-                "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
-                "SF Table": sf_table_name,       # <-- supply variable for SF table
-                "SAS Column": col,              # <-- or actual column name if available
-                "SF Column": col,               # <-- or actual column name if available
-                "SAS Row Count": sa_sas,
-                "SF Row Count": sa_sf,
-                "Status": status
-            })
+            #Check if this column exists in the dataset
+            if col in sas_df.columns:
+                sa_sas, sa_sf = sas_df[col].astype(float).sum(), sf_df[col].astype(float).sum()
+                status = "PASS" if abs(sa_sas - sa_sf) < 0.01 else "FAIL"
+                #results.append({"Test": "Sum", "Column": col, "SAS Row Count": sa_sas, "SF Row Count": sa_sf, "Status": status})
+                results.append({
+                    "Test": "Sum Amount",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": sa_sas,
+                    "SF Row Count": sa_sf,
+                    "Status": status
+                })
+            else:
+                status = "NOT EXECUTED-COL DO NOT EXIST"
+                results.append({
+                    "Test": "Sum",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": 0,
+                    "SF Row Count": 0,
+                    "Status": status
+                })
 
         elif rule == "Distinct Count":
             col = val["column"]
-            dc_sas, dc_sf = sas_df[col].nunique(), sf_df[col].nunique()
-            status = "PASS" if dc_sas == dc_sf else "FAIL"
-            #results.append({"Test": "Distinct", "Column": col, "SAS Row Count": dc_sas, "SF Row Count": dc_sf, "Status": status})
-            results.append({
-                "Test": "Distinct",
-                "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
-                "SF Table": sf_table_name,       # <-- supply variable for SF table
-                "SAS Column": col,              # <-- or actual column name if available
-                "SF Column": col,               # <-- or actual column name if available
-                "SAS Row Count": dc_sas,
-                "SF Row Count": dc_sf,
-                "Status": status
-            })
+            if col in sas_df.columns:
+                dc_sas, dc_sf = sas_df[col].nunique(), sf_df[col].nunique()
+                status = "PASS" if dc_sas == dc_sf else "FAIL"
+                #results.append({"Test": "Distinct", "Column": col, "SAS Row Count": dc_sas, "SF Row Count": dc_sf, "Status": status})
+                results.append({
+                    "Test": "Distinct",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": dc_sas,
+                    "SF Row Count": dc_sf,
+                    "Status": status
+                })
+            else:
+                status = "NOT EXECUTED-COL DO NOT EXIST"
+                results.append({
+                    "Test": "Sum",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": 0,
+                    "SF Row Count": 0,
+                    "Status": status
+                })
 
         elif rule == "Not Null":
             col = val["column"]
-            nn_sas, nn_sf = sas_df[col].isna().sum(), sf_df[col].isna().sum()
-            status = "PASS" if nn_sas == nn_sf == 0 else "FAIL"
-            #results.append({"Test": "Not Null", "Column": col, "SAS Row Count": nn_sas, "SF Row Count": nn_sf, "Status": status})
-            results.append({
-                "Test": "Not Null",
-                "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
-                "SF Table": sf_table_name,       # <-- supply variable for SF table
-                "SAS Column": col,              # <-- or actual column name if available
-                "SF Column": col,               # <-- or actual column name if available
-                "SAS Row Count": nn_sas,
-                "SF Row Count": nn_sf,
-                "Status": status
-            })
+            if col in sas_df.columns:
+                nn_sas, nn_sf = sas_df[col].isna().sum(), sf_df[col].isna().sum()
+                status = "PASS" if nn_sas == nn_sf == 0 else "FAIL"
+                #results.append({"Test": "Not Null", "Column": col, "SAS Row Count": nn_sas, "SF Row Count": nn_sf, "Status": status})
+                results.append({
+                    "Test": "Not Null",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": nn_sas,
+                    "SF Row Count": nn_sf,
+                    "Status": status
+                })
+            else:
+                status = "NOT EXECUTED-COL DO NOT EXIST"
+                results.append({
+                    "Test": "Sum",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": 0,
+                    "SF Row Count": 0,
+                    "Status": status
+                })
 
         elif rule == "Uniqueness":
             col = val["column"]
-            uq_sas, uq_sf = sas_df[col].is_unique, sf_df[col].is_unique
-            status = "PASS" if uq_sas and uq_sf else "FAIL"
-            #results.append({"Test": "Uniqueness", "Column": col, "SAS Row Count": uq_sas, "SF Row Count": uq_sf, "Status": status})
-            results.append({
-                "Test": "Uniqueness",
-                "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
-                "SF Table": sf_table_name,       # <-- supply variable for SF table
-                "SAS Column": col,              # <-- or actual column name if available
-                "SF Column": col,               # <-- or actual column name if available
-                "SAS Row Count": uq_sas,
-                "SF Row Count": uq_sf,
-                "Status": status
-            })
+            if col in sas_df.columns:
+                uq_sas, uq_sf = sas_df[col].is_unique, sf_df[col].is_unique
+                status = "PASS" if uq_sas and uq_sf else "FAIL"
+                #results.append({"Test": "Uniqueness", "Column": col, "SAS Row Count": uq_sas, "SF Row Count": uq_sf, "Status": status})
+                results.append({
+                    "Test": "Uniqueness",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": uq_sas,
+                    "SF Row Count": uq_sf,
+                    "Status": status
+                })
+            else:
+                status = "NOT EXECUTED-COL DO NOT EXIST"
+                results.append({
+                    "Test": "Sum",
+                    "SAS Dataset": sas_table_name,   # <-- supply variable for SAS dataset
+                    "SF Table": sf_table_name,       # <-- supply variable for SF table
+                    "SAS Column": col,              # <-- or actual column name if available
+                    "SF Column": col,               # <-- or actual column name if available
+                    "SAS Row Count": 0,
+                    "SF Row Count": 0,
+                    "Status": status
+                })
 
         elif rule == "Row Hash":
             hash_df = val["hash_df"]

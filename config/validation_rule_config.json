@@ -1,0 +1,36 @@
+[
+  {
+    "table": "MONTHLY_AMB",
+    "validation": "distinct_count",
+    "recommended_columns": [
+      "customer_id",
+      "account_id"
+    ]
+  },
+  {
+    "table": "MONTHLY_AMB",
+    "validation": "uniqueness",
+    "recommended_columns": [
+      "customer_id",
+      "account_id",
+      "reporting_month_yyyymm"
+    ]
+  },
+  {
+    "table": "MONTHLY_AMB",
+    "validation": "sum_amount",
+    "recommended_columns": [
+      "average_monthly_balance"
+    ]
+  },
+  {
+    "table": "MONTHLY_AMB",
+    "validation": "not_null",
+    "recommended_columns": [
+      "customer_id",
+      "account_id",
+      "reporting_month_yyyymm",
+      "average_monthly_balance"
+    ]
+  }
+]

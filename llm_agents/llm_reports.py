@@ -126,19 +126,20 @@ def generate_llm_summary(upstream_tables,error_tables, validation_results, sas_l
 
     ### This section  is usins google Gemini  APIs
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash") #gemini-1.5-flash
-        generation_config = genai.GenerationConfig(
-            max_output_tokens=4096,
-            temperature=0.2,
-            top_p=0.8,
-            response_mime_type="text/plain",
-        )
-
+        model = genai.GenerativeModel("gemini-2.5-flash") #gemini-1.5-flash
+        #generation_config = genai.GenerationConfig(
+        #    max_output_tokens=4096,
+        #    temperature=0.2,
+        #    top_p=0.8,
+        #    response_mime_type="text/plain",
+        #)
         #prompt = "give me a python code for adding two strings Str1 and Str2"
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
+        #response = model.generate_content(
+        #    prompt,
+        #    generation_config=generation_config
+        #)
+        response = model.generate_content(prompt)
+        #print(f">>>\nPrinting from LLM Report {response}")
         response_text = response.text.strip()
         llm_response = response_text.replace("```html", "").replace("```", "").replace("\n", "").replace("\t", "").strip()
 
