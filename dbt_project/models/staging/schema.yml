@@ -1,0 +1,118 @@
+version: 2
+
+models:
+  # ---------------------------------------------------------------------------
+  # stg_cust_accounts  (JOB01_LOAD_CUST_ACCOUNTS)
+  # ---------------------------------------------------------------------------
+  - name: stg_cust_accounts
+    description: >
+      Staged customer account records, cleansed and type-cast from RAW.
+      Corresponds to SAS JOB01_LOAD_CUST_ACCOUNTS which loads
+      RAW.CUST_ACCOUNTS into the WORK library for downstream processing.
+    columns:
+      - name: CUSTOMER_ID
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+      - name: ACCOUNT_ID
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: ACCOUNT_TYPE
+        description: "Type of account: CHECKING, SAVINGS, or CREDIT"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['CHECKING', 'SAVINGS', 'CREDIT']
+      - name: IS_ACTIVE
+        description: "Account status flag: ACTIVE or INACTIVE"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ACTIVE', 'INACTIVE']
+      - name: START_DATE
+        description: Date the account was opened
+        tests:
+          - not_null
+      - name: END_DATE
+        description: Date the account was closed (NULL if still active)
+      - name: LOADED_AT
+        description: Timestamp when the row was loaded into staging
+        tests:
+          - not_null
+
+  # ---------------------------------------------------------------------------
+  # stg_daily_balance  (JOB02_LOAD_DAILY_BALANCE)
+  # ---------------------------------------------------------------------------
+  - name: stg_daily_balance
+    description: >
+      Staged daily end-of-day balance records, cleansed and type-cast from RAW.
+      Corresponds to SAS JOB02_LOAD_DAILY_BALANCE which loads
+      RAW.DAILY_BALANCE into the WORK library for downstream processing.
+    columns:
+      - name: CUSTOMER_ID
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_cust_accounts')
+              field: CUSTOMER_ID
+      - name: ACCOUNT_ID
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: DATE
+        description: Calendar date of the balance snapshot
+        tests:
+          - not_null
+      - name: END_OF_DAY_BALANCE
+        description: Account balance at end of day
+        tests:
+          - not_null
+      - name: MONTH
+        description: "Year-month period in YYYY-MM format"
+        tests:
+          - not_null
+      - name: LOADED_AT
+        description: Timestamp when the row was loaded into staging
+        tests:
+          - not_null
+
+  # ---------------------------------------------------------------------------
+  # monthly_amb  (JOB03_CALC_AMB)
+  # ---------------------------------------------------------------------------
+  - name: monthly_amb
+    description: >
+      Monthly Average Balance (AMB) per customer account, computed by joining
+      staged account metadata with daily balance records and aggregating.
+      Corresponds to SAS JOB03_CALC_AMB which joins WORK.CUST_ACCOUNTS and
+      WORK.DAILY_BALANCE, filters to active accounts only, and calculates
+      AVG(end_of_day_balance) grouped by customer, account, and month.
+    columns:
+      - name: CUSTOMER_ID
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_cust_accounts')
+              field: CUSTOMER_ID
+      - name: ACCOUNT_ID
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: REPORTING_MONTH_YYYYMM
+        description: Reporting month expressed as an integer in YYYYMM format
+        tests:
+          - not_null
+      - name: AVERAGE_MONTHLY_BALANCE
+        description: >
+          Average of daily end-of-day balances for the account during the
+          reporting month, rounded to two decimal places
+        tests:
+          - not_null
+      - name: DATE_COMPUTED
+        description: >
+          Date the AMB calculation was performed, set to the first day of the
+          month following the reporting month
+        tests:
+          - not_null

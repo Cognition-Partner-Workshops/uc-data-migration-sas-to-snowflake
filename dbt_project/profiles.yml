@@ -1,0 +1,22 @@
+# =============================================================================
+# dbt Profile: finance_snowflake
+#
+# Configure this profile with your Snowflake credentials before running dbt.
+# Override values using environment variables (recommended for CI/CD):
+#   DBT_SNOWFLAKE_ACCOUNT, DBT_SNOWFLAKE_USER, DBT_SNOWFLAKE_PASSWORD,
+#   DBT_SNOWFLAKE_ROLE, DBT_SNOWFLAKE_WAREHOUSE
+# =============================================================================
+
+finance_snowflake:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT', 'your_account') }}"
+      user: "{{ env_var('DBT_SNOWFLAKE_USER', 'your_user') }}"
+      password: "{{ env_var('DBT_SNOWFLAKE_PASSWORD', 'your_password') }}"
+      role: "{{ env_var('DBT_SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      database: FINANCE_DB
+      schema: RAW
+      threads: 4

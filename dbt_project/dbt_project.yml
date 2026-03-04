@@ -1,0 +1,46 @@
+name: 'finance_sas_to_snowflake'
+version: '1.0.0'
+config-version: 2
+
+profile: 'finance_snowflake'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  finance_sas_to_snowflake:
+    staging:
+      +materialized: table
+      +schema: STAGING
+
+seeds:
+  finance_sas_to_snowflake:
+    +schema: RAW
+    CUST_ACCOUNTS:
+      +column_types:
+        customer_id: INTEGER
+        account_id: VARCHAR(8)
+        account_type: VARCHAR(10)
+        is_active: VARCHAR(10)
+        start_date: DATE
+        end_date: DATE
+    DAILY_BALANCE:
+      +column_types:
+        customer_id: INTEGER
+        account_id: VARCHAR(8)
+        date: DATE
+        end_of_day_balance: "NUMBER(12,2)"
+        month: VARCHAR(7)
+    MONTHLY_AMB:
+      +column_types:
+        customer_id: INTEGER
+        account_id: VARCHAR(8)
+        reporting_month_yyyymm: INTEGER
+        average_monthly_balance: "NUMBER(12,2)"
+        date_computed: DATE

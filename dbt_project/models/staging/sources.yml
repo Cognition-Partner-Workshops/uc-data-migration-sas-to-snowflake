@@ -1,0 +1,44 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw landing zone tables in FINANCE_DB.RAW, ingested from the legacy SAS
+      Finance_DB system.  These tables contain unmodified source data and serve
+      as the starting point for the staging transformations.
+    database: FINANCE_DB
+    schema: RAW
+    tables:
+      - name: CUST_ACCOUNTS
+        description: >
+          Customer account master data. Each row represents one account
+          belonging to a customer, with its type, status, and lifecycle dates.
+        columns:
+          - name: CUSTOMER_ID
+            description: Unique identifier for the customer
+          - name: ACCOUNT_ID
+            description: Unique identifier for the account (8-character hex string)
+          - name: ACCOUNT_TYPE
+            description: "Type of account: CHECKING, SAVINGS, or CREDIT"
+          - name: IS_ACTIVE
+            description: "Account status flag: ACTIVE or INACTIVE"
+          - name: START_DATE
+            description: Date the account was opened
+          - name: END_DATE
+            description: Date the account was closed (empty if still active)
+
+      - name: DAILY_BALANCE
+        description: >
+          Daily end-of-day balance snapshots for every customer account.
+          One row per account per calendar day.
+        columns:
+          - name: CUSTOMER_ID
+            description: Unique identifier for the customer
+          - name: ACCOUNT_ID
+            description: Unique identifier for the account (8-character hex string)
+          - name: DATE
+            description: Calendar date of the balance snapshot
+          - name: END_OF_DAY_BALANCE
+            description: Account balance at end of day
+          - name: MONTH
+            description: "Year-month period in YYYY-MM format"

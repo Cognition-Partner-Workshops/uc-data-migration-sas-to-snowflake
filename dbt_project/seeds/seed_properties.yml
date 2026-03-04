@@ -1,0 +1,87 @@
+version: 2
+
+seeds:
+  - name: CUST_ACCOUNTS
+    description: >
+      Sample customer account data loaded from the SAS source system CSV export.
+      Used to populate FINANCE_DB.RAW.CUST_ACCOUNTS via dbt seed.
+    columns:
+      - name: customer_id
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+      - name: account_id
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: account_type
+        description: "Type of account: CHECKING, SAVINGS, or CREDIT"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['CHECKING', 'SAVINGS', 'CREDIT']
+      - name: is_active
+        description: "Account status flag: ACTIVE or INACTIVE"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['ACTIVE', 'INACTIVE']
+      - name: start_date
+        description: Date the account was opened
+        tests:
+          - not_null
+      - name: end_date
+        description: Date the account was closed (empty if still active)
+
+  - name: DAILY_BALANCE
+    description: >
+      Sample daily end-of-day balance data loaded from the SAS source system
+      CSV export.  Used to populate FINANCE_DB.RAW.DAILY_BALANCE via dbt seed.
+    columns:
+      - name: customer_id
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+      - name: account_id
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: date
+        description: Calendar date of the balance snapshot
+        tests:
+          - not_null
+      - name: end_of_day_balance
+        description: Account balance at end of day
+        tests:
+          - not_null
+      - name: month
+        description: "Year-month period in YYYY-MM format"
+        tests:
+          - not_null
+
+  - name: MONTHLY_AMB
+    description: >
+      Sample Monthly Average Balance data loaded from the SAS source system
+      CSV export.  Used as reference data for validating the monthly_amb dbt
+      model output.
+    columns:
+      - name: customer_id
+        description: Unique identifier for the customer
+        tests:
+          - not_null
+      - name: account_id
+        description: Unique identifier for the account (8-character hex string)
+        tests:
+          - not_null
+      - name: reporting_month_yyyymm
+        description: Reporting month in YYYYMM numeric format
+        tests:
+          - not_null
+      - name: average_monthly_balance
+        description: Average of daily end-of-day balances for the month
+        tests:
+          - not_null
+      - name: date_computed
+        description: Date when the AMB calculation was performed
+        tests:
+          - not_null
