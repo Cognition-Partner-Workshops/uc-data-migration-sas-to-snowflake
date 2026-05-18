@@ -83,5 +83,5 @@ enriched as (
 select * from enriched
 
 {% if is_incremental() %}
-where transaction_date > (select max(transaction_date) from {{ this }})
+where transaction_date >= (select max(transaction_date) from {{ this }})
 {% endif %}
