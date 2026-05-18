@@ -27,7 +27,8 @@ accounts as (
 ),
 
 -- SAS: PROC SQL creating WORK.TXN_ENRICHED (join transactions to accounts)
-enriched as (
+-- running_balance computed via window function (replaces RETAIN + BY-group)
+base as (
     select
         t.transaction_id,
         t.account_id,
@@ -40,19 +41,7 @@ enriched as (
         a.customer_segment,
         a.region_code,
         a.branch_id,
-        a.current_balance as pre_txn_balance,
-
-        -- SAS: CASE expression for POST_TXN_BALANCE
-        case
-            when t.transaction_type in ('DEP','INT','REF','REV')
-                then a.current_balance + t.transaction_amount
-            when t.transaction_type in ('WDR','PMT','FEE','CHG')
-                then a.current_balance - abs(t.transaction_amount)
-            when t.transaction_type = 'TRF'
-                then t.transaction_amount + a.current_balance
-            else a.current_balance
-        end as post_txn_balance,
-
+        a.current_balance,
         a.risk_rating,
 
         -- SAS: RETAIN RUNNING_BALANCE — replaced by window function
@@ -62,7 +51,7 @@ enriched as (
                     then t.transaction_amount
                 when t.transaction_type in ('WDR','PMT','FEE','CHG')
                     then -abs(t.transaction_amount)
-                when t.transaction_type = 'TRF'
+                when t.transaction_type in ('TRF','ADJ')
                     then t.transaction_amount
                 else 0
             end
@@ -78,6 +67,18 @@ enriched as (
     from transactions t
     left join accounts a
         on t.account_id = a.account_id
+),
+
+-- Derive pre/post balances from running_balance so multi-txn accounts are correct
+enriched as (
+    select
+        *,
+        running_balance as post_txn_balance,
+        lag(running_balance, 1, current_balance) over (
+            partition by account_id
+            order by transaction_date, transaction_id
+        ) as pre_txn_balance
+    from base
 )
 
 select * from enriched
