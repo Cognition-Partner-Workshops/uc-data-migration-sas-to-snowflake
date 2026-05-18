@@ -234,8 +234,7 @@ stg_cust_accounts ──→ int_account_metrics ──→ mart_daily_transaction
                                            ├─→ mart_risk_scores
                                            └─→ mart_regulatory_reporting
 
-stg_daily_transactions ──→ mart_daily_transactions
-                        └─→ int_transaction_anomalies
+stg_daily_transactions ──→ mart_daily_transactions ──→ mart_transaction_anomalies
 
 stg_claims ──→ int_claims_adjudication ──→ mart_claims_register
 stg_policies ──→ int_policy_valuation ──→ mart_loss_ratios

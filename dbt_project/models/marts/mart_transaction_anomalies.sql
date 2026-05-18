@@ -1,5 +1,5 @@
 /*
-  int_transaction_anomalies.sql
+  mart_transaction_anomalies.sql
   Migrated from: Programs/Banking/daily_transaction_processing.sas (Step 3)
 
   SAS Original:
