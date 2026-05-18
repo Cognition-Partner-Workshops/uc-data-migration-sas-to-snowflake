@@ -12,7 +12,7 @@
 */
 
 with transactions as (
-    select * from {{ ref('stg_daily_transactions') }}
+    select * from {{ ref('mart_daily_transactions') }}
 ),
 
 -- SAS: PROC SQL creating WORK.TXN_STATS (90-day rolling stats per account)
