@@ -1,34 +1,26 @@
-# SAS to Databricks Migration — Validation & Lineage Toolkit
+# SAS to Snowflake Migration — Validation & Lineage Toolkit
 
-A comprehensive toolkit for SAS-to-Databricks/Snowflake data migration validation, including lineage metadata, sample banking datasets, a dbt target project, and a Streamlit validation UI.
+A validation framework for SAS-to-Snowflake data migrations, including lineage metadata, sample banking datasets (.sas7bdat + CSV), validation configurations, and a Streamlit validation UI with LLM-powered recommendations.
 
 ## Repository Structure
 
 ```
 ├── lineage/                      # Data lineage metadata
 │   ├── SAS_lineage.json          # Source SAS lineage (Collibra-style JSON)
-│   ├── SF_lineage.json           # Target Snowflake/Databricks lineage
+│   ├── SF_lineage.json           # Target Snowflake lineage
 │   └── SAS_DIS_Lineage_Generator.sas  # PROC METADATA lineage extraction
-├── data/                         # Sample banking datasets
-│   ├── CUST_ACCOUNTS.sas7bdat    # Customer accounts (SAS native)
-│   ├── DAILY_BALANCE.sas7bdat    # Daily balance snapshots
-│   ├── MONTHLY_AMB.sas7bdat      # Monthly average balances
-│   └── *.csv                     # CSV equivalents for validation
-├── dbt_project/                  # dbt target architecture (Databricks)
-│   ├── models/
-│   │   ├── staging/              # Raw source → staging (replaces LIBNAME extracts)
-│   │   ├── intermediate/         # Business logic (replaces DATA steps)
-│   │   └── marts/                # Final outputs (replaces CURATED/REPORTS)
-│   ├── macros/                   # PROC FORMAT → dbt Jinja macros
-│   ├── dbt_project.yml           # Project config with Databricks profile
-│   └── profiles.yml              # Databricks connection config
-├── docs/
-│   └── SAS_TO_DBT_MIGRATION_MAP.md  # Complete SAS→dbt construct mapping
+├── sample_data/                  # Sample banking datasets
+│   ├── Scenario1/                # Baseline migration scenario
+│   │   ├── CUST_ACCOUNTS.*       # Customer accounts (SAS + CSV)
+│   │   ├── DAILY_BALANCE.*       # Daily balance snapshots
+│   │   └── MONTHLY_AMB.*         # Monthly average balances
+│   └── Scenario2/                # Delta migration scenario
 ├── config/
 │   ├── validation_rule_config.json   # Validation rules for migration QA
 │   └── validations_list.csv          # Validation checklist
 ├── app.py                        # Streamlit validation dashboard
-└── llm_agents/                   # LLM-powered migration recommendations
+├── llm_agents/                   # LLM-powered migration recommendations
+└── test_code/                    # Validation test scripts
 ```
 
 ## Quick Start
@@ -61,33 +53,26 @@ PROC IMPORT DATAFILE='/home/<your_user_id>/creditscores.csv'
 RUN;
 ```
 
-## dbt Target Architecture
-
-The `dbt_project/` directory contains the target state for the migration — every SAS program in `ts-sas-legacy-analytics` has a corresponding dbt model:
-
-| SAS Source Program | dbt Model | Migration Pattern |
-|---|---|---|
-| `load_customer_accounts.sas` | `stg_cust_accounts` → `int_account_metrics` | PROC SQL + DATA step → SQL + CASE |
-| `daily_transaction_processing.sas` | `stg_daily_transactions` → `mart_daily_transactions` | RETAIN → window function |
-| `credit_risk_scoring.sas` | `mart_risk_scores` | WOE scorecard → nested CASE + exp() |
-| `claims_processing.sas` | (planned) `stg_claims` → `int_claims_adjudication` | Hash lookup → broadcast join |
-| `policy_valuation.sas` | (planned) `int_policy_valuation` → `mart_loss_ratios` | MERGE → SQL JOIN |
-
-See `docs/SAS_TO_DBT_MIGRATION_MAP.md` for the complete construct-level mapping.
-
 ## Lineage Metadata
 
-The `lineage/` directory contains Collibra-style lineage JSON mapping data flows from SAS sources to target tables:
+The `lineage/` directory contains Collibra-style lineage JSON mapping data flows from SAS sources to Snowflake target tables:
 
 - **SAS_lineage.json**: Nodes and edges representing the SAS-side data flow
-- **SF_lineage.json**: Target-side lineage in Snowflake/Databricks
+- **SF_lineage.json**: Target-side lineage in Snowflake
 - **SAS_DIS_Lineage_Generator.sas**: Macro template for extracting lineage from SAS Metadata Server via PROC METADATA
 
 ## Validation Approach
 
-1. **Row count parity**: Compare `%nobs()` from SAS logs against `COUNT(*)` in Databricks
+1. **Row count parity**: Compare `%nobs()` from SAS logs against `COUNT(*)` in Snowflake
 2. **Column checksums**: `SUM()`, `COUNT(DISTINCT)` comparisons
 3. **Sample record validation**: 100-record spot checks field-by-field
-4. **Business rule verification**: Exception counts match between SAS and dbt outputs
+4. **Business rule verification**: Exception counts match between SAS and Snowflake outputs
 
 The Streamlit app provides a visual interface for executing and reviewing validation results against the rules defined in `config/validation_rule_config.json`.
+
+## Related Repositories
+
+| Repo | Purpose |
+|---|---|
+| [`ts-sas-legacy-analytics`](https://github.com/Cognition-Partner-Workshops/ts-sas-legacy-analytics) | Source SAS estate (banking/insurance programs, macros, formats, batch orchestration) |
+| [`uc-data-migration-sas-to-databricks`](https://github.com/Cognition-Partner-Workshops/uc-data-migration-sas-to-databricks) | dbt/Databricks migration target architecture and construct mapping |
