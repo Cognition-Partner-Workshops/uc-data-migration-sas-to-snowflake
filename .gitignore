@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Migration script output (generated CSVs and SQL)
+migration/output/
+
 # C extensions
 *.so
 
