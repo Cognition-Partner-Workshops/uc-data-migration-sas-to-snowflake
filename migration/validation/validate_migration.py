@@ -82,11 +82,11 @@ SELECT
     '{table_name}.{column_name}' AS VALIDATION_TARGET,
     MIN({column_name}) AS TARGET_MIN,
     MAX({column_name}) AS TARGET_MAX,
-    '{source_min}' AS SOURCE_MIN,
-    '{source_max}' AS SOURCE_MAX,
+    {source_min} AS SOURCE_MIN,
+    {source_max} AS SOURCE_MAX,
     CASE
-        WHEN MIN({column_name})::VARCHAR = '{source_min}'
-         AND MAX({column_name})::VARCHAR = '{source_max}' THEN 'PASS'
+        WHEN MIN({column_name}) = {source_min}
+         AND MAX({column_name}) = {source_max} THEN 'PASS'
         ELSE 'FAIL'
     END AS VALIDATION_RESULT
 FROM {schema}.{table_name};
@@ -219,8 +219,15 @@ def compute_source_stats(df: pd.DataFrame, table_name: str) -> dict:
         }
         if col in config["numeric_columns"]:
             col_stats["sum"] = float(df[col].sum())
-            col_stats["min"] = str(df[col].min())
-            col_stats["max"] = str(df[col].max())
+            # Format min/max to match Snowflake numeric representation
+            raw_min = df[col].min()
+            raw_max = df[col].max()
+            if col in ("customer_id", "reporting_month_yyyymm"):
+                col_stats["min"] = str(int(raw_min))
+                col_stats["max"] = str(int(raw_max))
+            else:
+                col_stats["min"] = f"{raw_min:.2f}"
+                col_stats["max"] = f"{raw_max:.2f}"
         stats["columns"][col] = col_stats
 
     return stats
