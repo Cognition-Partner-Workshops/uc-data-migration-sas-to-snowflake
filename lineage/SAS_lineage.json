@@ -244,9 +244,9 @@
     "transformations": {
       "path": "source_codes/monthly_regulatory_reporting.sas",
       "highlights": [
-        { "start": 168, "len": 380, "text": "PROC SQL Step 5: Capital Adequacy from MONTHLY_RWA" }
+        { "start": 168, "len": 380, "text": "PROC SQL Step 4: Capital Adequacy from MONTHLY_RWA" }
       ],
-      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 5 Capital Adequacy)"
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 4 Capital Adequacy)"
     }
   },
   {
