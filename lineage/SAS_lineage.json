@@ -128,6 +128,131 @@
     "source": {
       "nodes": [
         { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "STG_BANK.CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/monthly_regulatory_reporting.sas",
+      "highlights": [
+        { "start": 40, "len": 480, "text": "PROC SQL Step 1: Risk-Weighted Assets by Category" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 1 RWA)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "ORA_DW.LOAN_DETAILS", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/monthly_regulatory_reporting.sas",
+      "highlights": [
+        { "start": 40, "len": 480, "text": "LEFT JOIN ORA_DW.LOAN_DETAILS for LTV-based risk weights" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 1 RWA)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "STG_BANK.CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "DELINQUENCY_AGING", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/monthly_regulatory_reporting.sas",
+      "highlights": [
+        { "start": 72, "len": 600, "text": "PROC SQL Step 2: Delinquency Aging 30/60/90/120/180+ Buckets" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 2 Delinquency)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "STG_BANK.CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "LLP_COVERAGE", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/monthly_regulatory_reporting.sas",
+      "highlights": [
+        { "start": 112, "len": 420, "text": "PROC SQL Step 3: Loan Loss Provision Coverage" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 3 LLP)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
+        { "name": "Finance_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "CAPITAL_ADEQUACY", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/monthly_regulatory_reporting.sas",
+      "highlights": [
+        { "start": 168, "len": 380, "text": "PROC SQL Step 5: Capital Adequacy from MONTHLY_RWA" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 5 Capital Adequacy)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "sas", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },
         { "name": "LINEAGE", "type": "Schema" }
       ],
