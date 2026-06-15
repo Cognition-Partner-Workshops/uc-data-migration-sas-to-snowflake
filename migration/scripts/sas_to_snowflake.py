@@ -81,8 +81,8 @@ def convert_customer_id(series: pd.Series) -> pd.Series:
 def _detect_dayfirst(series: pd.Series) -> bool:
     """Auto-detect whether string dates use DD-MM-YYYY (dayfirst) format.
 
-    Samples non-null values and checks if the first component exceeds 12,
-    which unambiguously indicates day-first format.
+    Distinguishes between YYYY-MM-DD (first > 31 → year) and DD-MM-YYYY
+    (first > 12 but <= 31 → day, with third > 31 → year).
     """
     sample = series.dropna().head(50)
     for val in sample:
@@ -90,22 +90,14 @@ def _detect_dayfirst(series: pd.Series) -> bool:
         if len(parts) == 3:
             try:
                 first_part = int(parts[0])
-                if first_part > 12:
-                    return True
                 third_part = int(parts[2])
+                if first_part > 31:
+                    return False  # YYYY-MM-DD format (first is a year)
+                if first_part > 12:
+                    return True  # DD-MM-YYYY (day > 12 is unambiguous)
                 if third_part > 31:
-                    # Format is XX-XX-YYYY (day or month first)
-                    # If first part <= 12, check more values
-                    continue
-            except ValueError:
-                continue
-    # If first component is always <= 12, check if third component looks like a year
-    for val in sample:
-        parts = str(val).split("-")
-        if len(parts) == 3:
-            try:
-                if int(parts[2]) > 31:
-                    return True  # DD-MM-YYYY format
+                    # XX-XX-YYYY: third is a year, so format is DD-MM-YYYY
+                    return True
             except ValueError:
                 continue
     return False
