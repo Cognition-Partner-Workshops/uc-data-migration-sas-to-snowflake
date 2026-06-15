@@ -20,11 +20,13 @@ else
 endif
 
 validate-all:
-	@for s in sample_data/Scenario*/; do \
+	@fail=0; \
+	for s in sample_data/Scenario*/; do \
 		scenario=$$(basename "$$s"); \
 		echo "\n=== Validating $$scenario ==="; \
-		$(PYTHON) verify/reconcile.py --scenario "$$scenario" || true; \
-	done
+		$(PYTHON) verify/reconcile.py --scenario "$$scenario" || fail=1; \
+	done; \
+	exit $$fail
 
 dashboard:
 	streamlit run app4.py

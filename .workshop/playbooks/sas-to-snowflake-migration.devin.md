@@ -1,8 +1,8 @@
-# Playbook: Validate a SAS-to-Snowflake data migration
+# Playbook: Convert and validate a SAS-to-Snowflake migration
 
 > **Facilitator / presenter:** this file is the source for a **Devin Playbook**.
 > Copy its contents into your Devin organization (Settings > Playbooks > *Create
-> a new Playbook*) so sessions can invoke it as `!validate-sas-to-snowflake`.
+> a new Playbook*) so sessions can invoke it as `!convert-sas-to-snowflake`.
 > See [Creating Playbooks](https://docs.devin.ai/product-guides/creating-playbooks).
 > The repo-specific commands (paths, scenario layout, harness invocations) are
 > kept in the companion Skill at
@@ -11,11 +11,14 @@
 
 ## Overview
 
-Run a **programmatic reconciliation** of one SAS-to-Snowflake table migration.
-The outcome is a PR containing any conversion fixes plus a reconciliation report
-that proves the Snowflake data ties out to the SAS source. The value is
-consistency: every table is validated the same way and every migration is gated
-by parity checks against the source.
+Convert one SAS program to its Snowflake equivalent — **Snowflake SQL** for
+set-based programs, **Snowpark Python** for procedural programs — and validate
+the output against the SAS source with a programmatic reconciliation harness.
+The outcome is a PR containing the converted Snowflake code, a Snowflake Task
+definition for orchestration, and a green reconciliation report that proves the
+Snowflake output ties out to the SAS source. The value is end-to-end migration
+with verifiable confidence: the same source-of-truth check applies to every
+program, every table, and every run.
 
 ## The one principle: the SAS source is the source of truth
 
@@ -29,101 +32,128 @@ the source.
 
 ## Required from user
 
-- **SAS table** — the source table to validate, e.g. `MONTHLY_AMB`.
-- **Snowflake table** — the target table in Snowflake, e.g. `MONTHLY_AMB`.
+- **SAS program** — the source program to convert, e.g.
+  `monthly_regulatory_reporting.sas`.
+- **Target construct** — `sql` (Snowflake SQL for set-based programs) or
+  `snowpark` (Snowpark Python for procedural programs with DATA step logic,
+  hash lookups, or multi-output datasets).
 - **Scenario** — which scenario dataset to validate against, e.g. `Scenario1`
   (baseline) or `Scenario2` (delta). Scenarios provide namespace isolation so
   concurrent runs do not collide.
 
 ## Procedure
 
-1. Load the SAS source dataset (`.sas7bdat` or the SAS-exported CSV baseline)
-   and the Snowflake target dataset (CSV export or live Snowflake query). Decode
-   SAS byte-encoded character columns.
-2. Identify the validation rules that apply to this table from the
-   `config/validation_rule_config.json` and `config/validations_list.csv`. If
-   the table is new, use the LLM-powered column recommender to suggest
-   appropriate columns for each rule type.
-3. Run the full validation suite against both datasets: **Row Count** (no silent
-   row loss or fan-out), **Sum Amount** (control totals tie out), **Distinct
-   Count** (cardinality matches), **Not Null** (no unexpected nulls introduced),
-   **Uniqueness** (key constraints preserved), and **Row Hash** (deep equality
-   where applicable).
-4. If any validation fails, trace **upstream lineage** using the Collibra-style
-   lineage metadata (`lineage/SAS_lineage.json`, `lineage/SF_lineage.json`) to
-   identify the transformation job that introduced the divergence.
-5. Investigate against the **SAS source** — do not relax the check to make it
-   pass. Correct the Snowflake SQL or migration script and re-run until the
-   validation report is green.
-6. If upstream tables also show failures, perform **recursive root-cause
-   analysis**: walk the lineage graph upstream until you find the first table
-   where the divergence originates.
-7. Deliver a PR that includes any conversion fixes, updated validation rules,
-   and the reconciliation report output, so a reviewer sees the parity evidence,
-   not just the code.
+1. **Read the SAS source** thoroughly. Identify every input table, output table,
+   macro dependency, format catalog, business rule, CASE mapping, and filter
+   condition. Map the data flow: `RAW` → `STAGING` → `CURATED` → `REPORTS`.
+2. **Choose the target construct.** If the SAS program is purely PROC SQL
+   (set-based joins, aggregations, CASE logic), convert to **Snowflake SQL**
+   under `snowflake_sql/`. If it uses DATA step procedural logic (hash lookups,
+   `retain`, multi-output `output` statements, conditional routing), convert to
+   **Snowpark Python** under `snowpark/`. Document the choice in the PR.
+3. **Convert faithfully.** Translate every SAS construct to its Snowflake
+   equivalent:
+   - `PROC SQL` → Snowflake SQL (CTEs replace `calculated` refs)
+   - `DATA step` → Snowpark DataFrame operations
+   - SAS date functions → Snowflake `DATEDIFF`, `DATEADD`, `TO_DATE`
+   - SAS formats (`$ACCTTYPE.`, `RISKRATE.`) → no Snowflake equivalent
+     (formatting is presentation-layer; store raw codes)
+   - SAS macro vars → Snowflake session variables (`$var`)
+   - SAS `%include` macros → inline or Snowflake UDFs
+   - Control-M scheduling → Snowflake Tasks with CRON expressions
+4. **Write a Snowflake Task definition** in `snowflake_sql/orchestration/tasks.sql`
+   that schedules the converted program, wires it into the dependency chain, and
+   replaces the Control-M job.
+5. **Run the reconciliation harness** (`make validate`) against the SAS source
+   and the Snowflake output. Check Row Count, Sum Amount, Distinct Count, Not
+   Null, Uniqueness.
+6. **If any validation fails**, trace upstream lineage using the Collibra-style
+   metadata (`lineage/SAS_lineage.json`, `lineage/SF_lineage.json`) to identify
+   the transformation job that introduced the divergence. Fix the Snowflake code,
+   not the check.
+7. **Deliver a PR** that includes the converted Snowflake SQL or Snowpark Python,
+   the Task DDL, any validation rule updates, and the green reconciliation
+   report.
 
 ## Specifications (postconditions)
 
-- Every validation rule passes for the target table: Row Count, Sum Amount,
-  Distinct Count, Not Null, Uniqueness.
-- The PR contains any fixes, the validation config, and the reconciliation
-  report.
-- Any source quirk reproduced is explicitly flagged in code and in the PR —
-  never silently changed.
-- Upstream lineage is traced for any failure, with root-cause documented.
+- The converted Snowflake code produces output that matches the SAS source on
+  every configured validation rule.
+- Snowflake SQL lives under `snowflake_sql/`, Snowpark Python under `snowpark/`.
+- A Snowflake Task definition in `snowflake_sql/orchestration/tasks.sql` wires
+  the new job into the dependency DAG.
+- Risk weights, thresholds, filter conditions, and business rules are reproduced
+  **exactly** from the SAS source. Document any SAS-specific construct that has
+  no Snowflake equivalent.
+- The PR contains the parity evidence (reconciliation report), not just the code.
 
 ## Advice and pointers
 
 - **Date formats** are a common migration trap: SAS uses many date encodings
-  (`date9.`, `yymmdd10.`, `mmddyy10.`); Snowflake typically expects ISO 8601
+  (`date9.`, `yymmdd10.`, `mmddyy10.`); Snowflake expects ISO 8601
   (`YYYY-MM-DD`). Always compare date columns in a canonical format.
 - **The `is_active` filter** is a frequent divergence: SAS programs often process
   all accounts; a Snowflake migration may add a `WHERE is_active = 'ACTIVE'`
   filter that the source does not have, causing row-count mismatches.
+- **`calculated` column references** (SAS PROC SQL) have no Snowflake equivalent.
+  Wrap the query in a CTE or subquery.
+- **SAS hash objects** map to Snowpark DataFrame joins, not Snowflake SQL JOINs —
+  use Snowpark for programs that rely on hash lookups for performance.
 - A control that is hard to make pass is usually telling you the migration
   diverged — read the SAS source again before touching the control.
-- The Streamlit dashboard (`app4.py`) provides an interactive visual interface
-  for exploring validation results, but the CLI harness (`verify/reconcile.py`)
-  is the programmatic gate.
 
 ### Worked example: the `is_active` filter divergence
 
 A real defect this loop catches, and the canonical illustration of "source is
 truth":
 
-- The SAS `JOB03_CALC_AMB.sas` computes the Monthly Average Balance for **all**
-  accounts in `WORK.CUST_ACCOUNTS` and `WORK.DAILY_BALANCE`, regardless of
-  account status.
+- The SAS computation of Monthly Average Balance processes **all** accounts in
+  `WORK.CUST_ACCOUNTS` and `WORK.DAILY_BALANCE`, regardless of account status.
 - The Snowflake migration's `JOB03_CALC_AMB.sql` added a
   `WHERE c.is_active = 'ACTIVE'` clause to the join — a plausible optimization
   that excludes inactive accounts.
-- The Sum Amount validation on `average_monthly_balance` catches it: the
-  Snowflake total is lower because inactive accounts (roughly 1 in 7, per the
-  synthetic data generation) are excluded from the AMB calculation.
-- The fix is to remove the extra filter, matching the SAS logic faithfully. If
-  the business *wants* to exclude inactive accounts going forward, that is a
-  deliberate remediation flagged and tracked separately — not a silent side
-  effect of migration.
+- The reconciliation harness catches it:
+
+  ```
+  Row Count:      SAS=1980   SF=1709    -> FAIL
+  Distinct Count: SAS=1000   SF=942     -> FAIL
+  Sum Amount:     SAS=5702329  SF=4928656  -> FAIL ($773K gap)
+  ```
+
+  271 rows missing, 58 customers lost, $773,673 control-total gap.
+- The fix: remove the extra filter, matching the SAS logic faithfully. If the
+  business *wants* to exclude inactive accounts going forward, that is a
+  deliberate remediation flagged and tracked separately.
 
 The lineage trace shows the divergence originates at the `JOB03_CALC_AMB`
-transformation node (visible in `SF_lineage.json` where the `highlights` field
-contains `WHERE c.is_active = 'ACTIVE'`). The SAS lineage has no such filter.
+transformation node. The SAS lineage has no such filter.
+
+### Worked example: LOC risk-weight divergence
+
+In `monthly_regulatory_reporting.sas`, the SAS CASE mapping assigns `LOC`
+(Lines of Credit) a risk weight of **1.00**. A conversion attempt used 0.75
+(matching the `AUTO`/`PERS`/`CC` weight) — a plausible but incorrect
+generalization. The RWA parity check flagged the total Risk-Weighted Assets
+divergence, and the lineage trace pinpointed it to the `RISK_WEIGHT` CASE in
+`JOB04_MONTHLY_REGULATORY.sql`. The fix: set LOC to 1.00, matching the SAS
+source exactly.
 
 ## Forbidden actions
 
-- Do **not** "improve", clean up, or modernise legacy logic during validation —
+- Do **not** "improve", clean up, or modernise legacy logic during conversion —
   reproduce it faithfully and flag anomalies for a separate decision.
 - Do **not** relax, delete, or hard-code a validation rule to make a report go
   green. Fix the migration, not the check.
 - Do **not** modify the SAS source datasets — they are the immutable baseline.
-- Do **not** validate more than the one table in scope for this session (fan out
-  via child sessions for multi-table validation).
+- Do **not** convert more than the one program in scope for this session (fan out
+  via child sessions for multi-program conversion).
+- Do **not** write into another run's namespace or the durable raw source tables.
 
 ## Parallel fan-out
 
-Each table migration is independent, so validations parallelise cleanly: run one
-session per table (each with its own scenario directory), or one orchestrator
-session that spawns a child per table. Because this playbook fixes the procedure
-and the validation contract, every session's output is consistent and
-independently verified — the same review bar applied N times in parallel instead
-of once in series.
+Each SAS program conversion is independent, so migrations parallelise cleanly:
+run one session per program (each with its own scenario directory), or one
+orchestrator session that spawns a child per program. Because this playbook
+fixes the procedure and the validation contract, every session's output is
+consistent and independently verified — the same review bar applied N times in
+parallel instead of once in series.

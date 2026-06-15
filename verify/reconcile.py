@@ -171,6 +171,17 @@ def _run_validations(
                     "SF Value": uq_sf,
                     "Status": status,
                 })
+            else:
+                results.append({
+                    "Test": "Uniqueness",
+                    "SAS Dataset": sas_table_name,
+                    "SF Table": sf_table_name,
+                    "SAS Column": col,
+                    "SF Column": col,
+                    "SAS Value": 0,
+                    "SF Value": 0,
+                    "Status": "SKIP (column missing)",
+                })
 
     results_df = pd.DataFrame(results)
     if "Status" in results_df.columns:
