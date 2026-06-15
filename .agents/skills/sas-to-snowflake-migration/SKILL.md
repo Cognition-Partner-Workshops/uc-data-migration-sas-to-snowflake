@@ -60,6 +60,7 @@ insurance claims running independently:
 | `TASK_DAILY_BANKING_ROOT` | Control-M `BANK_MASTER` | `CRON 0 6 * * *` |
 | `TASK_JOB01_LOAD_CUST_ACCOUNTS` | `BANK_DAILY_01` | `AFTER ROOT` |
 | `TASK_JOB02_DAILY_TRANSACTIONS` | `BANK_DAILY_02` | `AFTER JOB01` |
+| `TASK_JOB03_CALC_AMB` | batch inline (no Control-M job) | `AFTER JOB02` (daily, parallel branch) |
 | `TASK_WEEKLY_CREDIT_RISK` | `BANK_WEEKLY_01` | `AFTER JOB02`, `WHEN` Sunday |
 | `TASK_JOB04_MONTHLY_REGULATORY` | `BANK_MONTHLY_01` | `AFTER CREDIT_RISK`, `WHEN` 3rd business day |
 | `TASK_INS_CLAIMS_PROCESSING` | `INS_DAILY_01` | `CRON 0 8 * * *` (Snowpark SP, independent) |

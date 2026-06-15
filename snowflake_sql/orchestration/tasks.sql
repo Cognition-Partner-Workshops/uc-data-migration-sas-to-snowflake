@@ -21,7 +21,8 @@
   Snowflake equivalent: a single Task DAG rooted at
   TASK_DAILY_BANKING_ROOT chaining
     JOB01 -> JOB02 -> CREDIT_RISK -> MONTHLY_REGULATORY
-  plus a standalone TASK_INS_CLAIMS_PROCESSING.
+  with JOB03_CALC_AMB as a daily parallel branch off JOB02 (inline ETL
+  step, not a Control-M job) plus a standalone TASK_INS_CLAIMS_PROCESSING.
 
   Cadence note: a Snowflake Task may have EITHER a SCHEDULE (root) OR an
   AFTER predecessor (child) — not both. The root runs the DAG daily, and
@@ -71,6 +72,19 @@ CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
     COMMENT = 'Daily transaction ETL — replaces daily_transaction_processing.sas (BANK_DAILY_02)'
 AS
     EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB02_DAILY_TRANSACTIONS.sql;
+
+
+-- JOB03: Calculate Monthly Average Balance (inline batch step, runs daily)
+-- Not a Control-M job in run_daily_banking.sas, but a required ETL step that
+-- populates STAGING.MONTHLY_AMB (consumed by validation/lineage). It only
+-- depends on JOB01/JOB02 output, so it runs daily as a parallel branch off
+-- JOB02 — independent of the weekly credit-risk / monthly-regulatory chain.
+CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB
+    WAREHOUSE = WH_BATCH_ETL
+    AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
+    COMMENT = 'Calculate monthly AMB — no is_active filter (matches SAS source)'
+AS
+    EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB03_CALC_AMB.sql;
 
 
 -- BANK_WEEKLY_01: Credit Risk Scoring (Weekly Sun, after BANK_DAILY_02)
@@ -124,6 +138,7 @@ AS
 -- =====================================================================
 ALTER TASK FINANCE_DB.PUBLIC.TASK_JOB04_MONTHLY_REGULATORY RESUME;
 ALTER TASK FINANCE_DB.PUBLIC.TASK_WEEKLY_CREDIT_RISK RESUME;
+ALTER TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB RESUME;
 ALTER TASK FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS RESUME;
 ALTER TASK FINANCE_DB.PUBLIC.TASK_JOB01_LOAD_CUST_ACCOUNTS RESUME;
 ALTER TASK FINANCE_DB.PUBLIC.TASK_DAILY_BANKING_ROOT RESUME;
