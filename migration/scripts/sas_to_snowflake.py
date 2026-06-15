@@ -78,15 +78,50 @@ def convert_customer_id(series: pd.Series) -> pd.Series:
     return series.astype("Int64")
 
 
+def _detect_dayfirst(series: pd.Series) -> bool:
+    """Auto-detect whether string dates use DD-MM-YYYY (dayfirst) format.
+
+    Samples non-null values and checks if the first component exceeds 12,
+    which unambiguously indicates day-first format.
+    """
+    sample = series.dropna().head(50)
+    for val in sample:
+        parts = str(val).split("-")
+        if len(parts) == 3:
+            try:
+                first_part = int(parts[0])
+                if first_part > 12:
+                    return True
+                third_part = int(parts[2])
+                if third_part > 31:
+                    # Format is XX-XX-YYYY (day or month first)
+                    # If first part <= 12, check more values
+                    continue
+            except ValueError:
+                continue
+    # If first component is always <= 12, check if third component looks like a year
+    for val in sample:
+        parts = str(val).split("-")
+        if len(parts) == 3:
+            try:
+                if int(parts[2]) > 31:
+                    return True  # DD-MM-YYYY format
+            except ValueError:
+                continue
+    return False
+
+
 def convert_sas_date(series: pd.Series, format_hint: str = "YYMMDD10") -> pd.Series:
     """Convert SAS date values to ISO date strings (YYYY-MM-DD).
 
     SAS stores dates as days since 1960-01-01. pyreadstat may already convert
     them to datetime or return them as strings depending on the file.
+    Auto-detects DD-MM-YYYY format when dates are already strings.
     """
-    if series.dtype == "object":
-        # Already string dates from pyreadstat
-        parsed = pd.to_datetime(series, errors="coerce", dayfirst=False)
+    if pd.api.types.is_string_dtype(series) or series.dtype == "object":
+        # Auto-detect date format from string content
+        dayfirst = _detect_dayfirst(series)
+        parsed = pd.to_datetime(series, errors="coerce", dayfirst=dayfirst)
         return parsed.dt.strftime("%Y-%m-%d").where(parsed.notna(), None)
     elif pd.api.types.is_float_dtype(series):
         # Raw SAS date numeric (days since 1960-01-01)
@@ -106,8 +141,9 @@ def convert_sas_date(series: pd.Series, format_hint: str = "YYMMDD10") -> pd.Ser
 
 def convert_month_field(series: pd.Series) -> pd.Series:
     """Convert month field to YYYY-MM string format."""
-    if series.dtype == "object":
-        parsed = pd.to_datetime(series, errors="coerce")
+    if pd.api.types.is_string_dtype(series) or series.dtype == "object":
+        dayfirst = _detect_dayfirst(series)
+        parsed = pd.to_datetime(series, errors="coerce", dayfirst=dayfirst)
         return parsed.dt.strftime("%Y-%m").where(parsed.notna(), None)
     elif pd.api.types.is_datetime64_any_dtype(series):
         return series.dt.strftime("%Y-%m").where(series.notna(), None)
@@ -287,9 +323,11 @@ TRUNCATE TABLE {stg_table};
 # ---------------------------------------------------------------------------
 
 
-def compute_row_checksum(df: pd.DataFrame) -> str:
-    """Compute an MD5 checksum across all rows for validation."""
-    content = df.to_csv(index=False, na_rep="NULL")
+def compute_row_checksum(df: pd.DataFrame, table_name: str = "") -> str:
+    """Compute an MD5 checksum matching the exported CSV representation."""
+    # Apply same column renames as export_csv_for_snowflake
+    renamed_df = df.rename(columns=COLUMN_RENAME_MAP.get(table_name, {}))
+    content = renamed_df.to_csv(index=False, na_rep="", date_format="%Y-%m-%d")
     return hashlib.md5(content.encode("utf-8")).hexdigest()
 
 
@@ -336,8 +374,8 @@ def run_migration(source_dir: Path, output_dir: Path, scenario: str) -> dict:
         sql_path.write_text(copy_sql)
         print(f"  Load SQL: {sql_path}")
 
-        # 5. Compute checksum
-        checksum = compute_row_checksum(transformed_df)
+        # 5. Compute checksum (matches exported CSV exactly)
+        checksum = compute_row_checksum(transformed_df, table_name)
 
         summary[table_name] = {
             "source_rows": source_rows,
