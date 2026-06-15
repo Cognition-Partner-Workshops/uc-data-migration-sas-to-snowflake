@@ -22,18 +22,20 @@ Conversion notes:
   - SAS hash lookup (h_pol) → Snowpark DataFrame join
   - SAS DATA step multi-output → filtered DataFrames written separately
   - SAS %nobs → df.count()
-  - SAS ifc() → Python conditional expressions
+  - SAS ifc() → Python conditional expressions / when()
   - SAS PROC APPEND → Snowpark write_pandas with mode='append'
   - SAS %sendmail → Snowflake SYSTEM$SEND_EMAIL (or external notification)
+  - SAS catx() for ADJUDICATION_REASON → concat_ws()
+  - SAS catx()/put() for ALERT_REASON → concat_ws()
 """
-from datetime import date, datetime
+from datetime import date
 
 from snowflake.snowpark import Session
 from snowflake.snowpark.functions import (
     col,
+    concat_ws,
     lit,
     when,
-    current_timestamp,
 )
 from snowflake.snowpark.types import StringType
 
@@ -53,6 +55,8 @@ def claims_processing(session: Session, proc_date: str) -> str:
 
     # ------------------------------------------------------------------
     # Step 1: Ingest and Validate
+    # SAS: DATA step with hash lookup (h_pol) against POLICIES
+    # Multi-output: CLAIMS_VALID / CLAIMS_INVALID
     # ------------------------------------------------------------------
     try:
         claims_raw = session.table(feed_table)
@@ -71,7 +75,8 @@ def claims_processing(session: Session, proc_date: str) -> str:
     # Join claims to policies (SAS hash lookup equivalent)
     joined = claims_raw.join(policies, on="POLICY_ID", how="left")
 
-    # Valid: policy found, loss date in period, amount <= sum insured
+    # Valid: policy found AND active, loss date within policy period,
+    # claimed amount does not exceed sum insured
     claims_valid = joined.filter(
         col("POLICY_TYPE").is_not_null()
         & (col("LOSS_DATE") >= col("EFFECTIVE_DATE"))
@@ -79,17 +84,21 @@ def claims_processing(session: Session, proc_date: str) -> str:
         & (col("CLAIMED_AMOUNT") <= col("SUM_INSURED"))
     )
 
-    claims_invalid = joined.filter(
+    # claims_invalid retained for completeness (mirrors SAS multi-output)
+    # but not written to a table in this procedure
+    _ = joined.filter(
         col("POLICY_TYPE").is_null()
         | (col("LOSS_DATE") < col("EFFECTIVE_DATE"))
         | (col("LOSS_DATE") > col("EXPIRATION_DATE"))
         | (col("CLAIMED_AMOUNT") > col("SUM_INSURED"))
-    )
+    )  # noqa: F841
 
     nobs_new = claims_valid.count()
 
     # ------------------------------------------------------------------
     # Step 2: Fraud Screening
+    # SAS: PROC SQL left join to TERA_DW.FRAUD_INDICATORS
+    # FRAUD_RISK derived from FRAUD_SCORE thresholds: >=80 HIGH, >=50 MEDIUM
     # ------------------------------------------------------------------
     fraud_indicators = session.table("TERA_DW.FRAUD_INDICATORS")
 
@@ -104,15 +113,32 @@ def claims_processing(session: Session, proc_date: str) -> str:
         .otherwise(lit("LOW")),
     )
 
-    fraud_alerts = fraud_check.filter(col("FRAUD_RISK") == "HIGH")
+    # SAS: separate high-risk claims for SIU review with ALERT_REASON, ALERT_DATE
+    fraud_alerts = (
+        fraud_check
+        .filter(col("FRAUD_RISK") == "HIGH")
+        .with_column(
+            "ALERT_REASON",
+            concat_ws(
+                lit("; "),
+                concat_ws(
+                    lit(" "), lit("Fraud score:"),
+                    col("FRAUD_SCORE").cast("INTEGER").cast(StringType()),
+                ),
+                col("INDICATOR_FLAGS"),
+            ),
+        )
+        .with_column("ALERT_DATE", lit(proc_date))
+    )
     nobs_fraud = fraud_alerts.count()
 
     # ------------------------------------------------------------------
     # Step 3: Auto-Adjudication Rules
-    # Reproduces SAS logic exactly — do NOT modify thresholds
+    # Reproduces SAS DATA step logic exactly — do NOT modify thresholds.
+    # SAS uses sequential if/return: once a row outputs, it skips later rules.
     # ------------------------------------------------------------------
 
-    # Auto-deny: high fraud risk
+    # Rule 1: Auto-deny — high fraud risk → MANUAL_REVIEW with DENY
     denied = fraud_check.filter(col("FRAUD_RISK") == "HIGH").with_columns(
         ["ADJUDICATION_RESULT", "ADJUDICATION_REASON", "APPROVED_AMOUNT"],
         [
@@ -122,8 +148,9 @@ def claims_processing(session: Session, proc_date: str) -> str:
         ],
     )
 
-    # Auto-approve: low risk, small claim, eligible policy type
+    # Rule 2: Auto-approve — low risk, small claim (<=5000), eligible policy type
     low_risk = fraud_check.filter(col("FRAUD_RISK") == "LOW")
+
     auto_small = low_risk.filter(
         (col("CLAIMED_AMOUNT") <= 5000)
         & col("POLICY_TYPE").isin("AUTO", "HOME", "RENT")
@@ -137,25 +164,33 @@ def claims_processing(session: Session, proc_date: str) -> str:
         ],
     )
 
-    # Auto-approve: within 25% of sum insured and <= 50K
-    auto_standard = low_risk.filter(
-        (col("CLAIMED_AMOUNT") > 5000)
-        & (col("CLAIMED_AMOUNT") <= col("SUM_INSURED") * 0.25)
-        & (col("CLAIMED_AMOUNT") <= 50000)
-    ).with_columns(
-        ["ADJUDICATION_RESULT", "ADJUDICATION_REASON", "APPROVED_AMOUNT"],
-        [
-            lit("APPR"),
-            lit("Auto-approved: within 25% of sum insured"),
-            when(col("CLAIMED_AMOUNT") - col("DEDUCTIBLE") > 0,
-                 col("CLAIMED_AMOUNT") - col("DEDUCTIBLE")).otherwise(lit(0.0)),
-        ],
+    # Rule 3: Auto-approve — low risk, within 25% of sum insured AND <=50K
+    # Excludes rows already captured by Rule 2 (SAS `return` semantics)
+    auto_small_ids = auto_small.select("CLAIM_ID")
+    auto_standard = (
+        low_risk
+        .join(auto_small_ids, on="CLAIM_ID", how="left_anti")
+        .filter(
+            (col("CLAIMED_AMOUNT") <= col("SUM_INSURED") * 0.25)
+            & (col("CLAIMED_AMOUNT") <= 50000)
+        )
+        .with_columns(
+            ["ADJUDICATION_RESULT", "ADJUDICATION_REASON", "APPROVED_AMOUNT"],
+            [
+                lit("APPR"),
+                lit("Auto-approved: within 25% of sum insured"),
+                when(col("CLAIMED_AMOUNT") - col("DEDUCTIBLE") > 0,
+                     col("CLAIMED_AMOUNT") - col("DEDUCTIBLE")).otherwise(lit(0.0)),
+            ],
+        )
     )
 
     auto_adjudicated = auto_small.union_all(auto_standard)
     nobs_auto = auto_adjudicated.count()
 
-    # Everything else → manual review
+    # Rule 4: Everything else → manual review (SAS: ADJUDICATION_RESULT='PEND')
+    # SAS builds dynamic reason via ifc():
+    #   Medium fraud risk; Large claim (>50K); Exceeds 25% threshold
     auto_ids = auto_adjudicated.select("CLAIM_ID")
     denied_ids = denied.select("CLAIM_ID")
     manual_review = (
@@ -164,13 +199,24 @@ def claims_processing(session: Session, proc_date: str) -> str:
         .join(denied_ids, on="CLAIM_ID", how="left_anti")
         .with_columns(
             ["ADJUDICATION_RESULT", "ADJUDICATION_REASON", "APPROVED_AMOUNT"],
-            [lit("PEND"), lit("Requires manual review"), lit(None)],
+            [
+                lit("PEND"),
+                concat_ws(
+                    lit("; "),
+                    when(col("FRAUD_RISK") == "MEDIUM", lit("Medium fraud risk")),
+                    when(col("CLAIMED_AMOUNT") > 50000, lit("Large claim")),
+                    when(col("CLAIMED_AMOUNT") > col("SUM_INSURED") * 0.25,
+                         lit("Exceeds 25% threshold")),
+                ),
+                lit(None).cast("DOUBLE"),
+            ],
         )
     )
     nobs_review = manual_review.count()
 
     # ------------------------------------------------------------------
     # Step 4: Update Claims Register (SAS PROC APPEND equivalent)
+    # Combines auto-adjudicated + denied + manual review
     # ------------------------------------------------------------------
     combined = (
         auto_adjudicated.union_all(denied).union_all(manual_review)
@@ -179,7 +225,11 @@ def claims_processing(session: Session, proc_date: str) -> str:
     )
 
     combined.write.mode("append").save_as_table("STG_INS.CLAIMS_REGISTER")
-    manual_review.write.mode("append").save_as_table(
+
+    # SAS: PROC APPEND data=WORK.MANUAL_REVIEW — which includes both DENY
+    # (HIGH fraud, routed to manual review per SAS line 140) and PEND claims
+    review_queue = denied.union_all(manual_review)
+    review_queue.write.mode("append").save_as_table(
         "STG_INS.CLAIMS_REVIEW_QUEUE"
     )
 
