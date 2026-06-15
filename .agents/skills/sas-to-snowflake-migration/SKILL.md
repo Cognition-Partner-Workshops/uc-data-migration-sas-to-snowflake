@@ -50,15 +50,23 @@ The legacy SAS estate lives in the companion `ts-sas-legacy-analytics` repo:
 `snowflake_sql/orchestration/tasks.sql` — Snowflake Task DAG replacing
 Control-M:
 
+The DAG mirrors the sequential `%run_step` chain in
+`ts-sas-legacy-analytics/BatchJobs/run_daily_banking.sas`
+(`load → daily_transactions → credit_risk → monthly_regulatory`), with
+insurance claims running independently:
+
 | Snowflake Task | Replaces | Schedule/Dependency |
 |---|---|---|
 | `TASK_DAILY_BANKING_ROOT` | Control-M `BANK_MASTER` | `CRON 0 6 * * *` |
 | `TASK_JOB01_LOAD_CUST_ACCOUNTS` | `BANK_DAILY_01` | `AFTER ROOT` |
 | `TASK_JOB02_DAILY_TRANSACTIONS` | `BANK_DAILY_02` | `AFTER JOB01` |
-| `TASK_JOB03_CALC_AMB` | batch inline | `AFTER JOB02` |
-| `TASK_JOB04_MONTHLY_REGULATORY` | `BANK_MONTHLY_01` | `AFTER JOB03` (conditional) |
-| `TASK_INS_CLAIMS_PROCESSING` | `INS_DAILY_01` | `CRON 0 8 * * *` (Snowpark SP) |
-| `TASK_WEEKLY_CREDIT_RISK` | `BANK_WEEKLY_01` | `CRON 0 2 * * SUN` |
+| `TASK_WEEKLY_CREDIT_RISK` | `BANK_WEEKLY_01` | `AFTER JOB02`, `WHEN` Sunday |
+| `TASK_JOB04_MONTHLY_REGULATORY` | `BANK_MONTHLY_01` | `AFTER CREDIT_RISK`, `WHEN` 3rd business day |
+| `TASK_INS_CLAIMS_PROCESSING` | `INS_DAILY_01` | `CRON 0 8 * * *` (Snowpark SP, independent) |
+
+Weekly/monthly Control-M cadences are reproduced with `WHEN` predicates
+(a Task can have either a `SCHEDULE` or an `AFTER` predecessor, not both),
+preserving dependency order while gating the body to the intended run days.
 
 ### Validation harness
 

@@ -86,15 +86,19 @@ AS
 
 
 -- BANK_MONTHLY_01: Monthly Regulatory Reporting (Monthly 3rd BD, after BANK_WEEKLY_01)
--- AFTER the weekly task preserves the chain; WHEN gates execution to the
--- 3rd business day of the month. Business-day logic: 3rd weekday on or
--- after the 1st falls on calendar day 3 (Wed-Fri starts), 4 (Tue/Sun
--- start), or 5 (Mon/Sat start), and never on a weekend.
+-- AFTER the weekly task preserves the chain; WHEN gates execution to exactly
+-- the 3rd business day. The calendar day of the 3rd business day depends on
+-- which ISO weekday the 1st of the month falls on:
+--   1st = Mon/Tue/Wed -> calendar day 3
+--   1st = Thu/Fri/Sat -> calendar day 5
+--   1st = Sun         -> calendar day 4
 CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB04_MONTHLY_REGULATORY
     WAREHOUSE = WH_BATCH_ETL
     AFTER FINANCE_DB.PUBLIC.TASK_WEEKLY_CREDIT_RISK
-    WHEN DAYOFWEEKISO(CURRENT_DATE()) <= 5
-         AND DAYOFMONTH(CURRENT_DATE()) BETWEEN 3 AND 5
+    WHEN DAYOFMONTH(CURRENT_DATE()) = CASE DAYOFWEEKISO(DATE_TRUNC('MONTH', CURRENT_DATE()))
+             WHEN 1 THEN 3 WHEN 2 THEN 3 WHEN 3 THEN 3
+             WHEN 4 THEN 5 WHEN 5 THEN 5 WHEN 6 THEN 5
+             WHEN 7 THEN 4 END
     COMMENT = 'Monthly regulatory reporting — replaces monthly_regulatory_reporting.sas (BANK_MONTHLY_01)'
 AS
     EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB04_MONTHLY_REGULATORY.sql;
