@@ -69,11 +69,7 @@
     "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sql",
       "highlights": [
-        {
-          "start": 0,
-          "len": 85,
-          "text": "WHERE c.is_active = 'ACTIVE'"
-        }
+        { "start": 0, "len": 580 }
       ],
       "transformation_display_name": "JOB03_CALC_AMB"
     }
@@ -98,11 +94,7 @@
     "transformations": {
       "path": "source_codes/JOB03_CALC_AMB.sql",
       "highlights": [
-        {
-          "start": 0,
-          "len": 85,
-          "text": "WHERE c.is_active = 'ACTIVE'"
-        }
+        { "start": 0, "len": 580 }
       ],
       "transformation_display_name": "JOB03_CALC_AMB"
     }
