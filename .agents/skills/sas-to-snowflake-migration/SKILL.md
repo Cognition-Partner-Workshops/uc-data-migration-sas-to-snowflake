@@ -89,6 +89,10 @@ immutable baseline — never modified.
 | `CUST_ACCOUNTS` | `customer_id`, `account_id`, `account_type`, `is_active`, `start_date`, `end_date` | same |
 | `DAILY_BALANCE` | `customer_id`, `account_id`, `date`, `end_of_day_balance`, `month` | same |
 | `MONTHLY_AMB` | `customer_id`, `account_id`, `reporting_month_yyyymm`, `average_monthly_balance`, `date_computed` | same |
+| `MONTHLY_RWA` | `REPORT_MONTH`, `ACCOUNT_TYPE`, `CUSTOMER_SEGMENT`, `RISK_WEIGHT`, `N_ACCOUNTS`, `TOTAL_EXPOSURE`, `RWA` | same |
+| `DELINQUENCY_AGING` | `REPORT_MONTH`, `ACCOUNT_TYPE`, `REGION_CODE`, `DELINQ_BUCKET`, `N_ACCOUNTS`, `TOTAL_BALANCE`, `TOTAL_PAST_DUE` | same |
+| `LLP_COVERAGE` | `REPORT_MONTH`, `ACCOUNT_TYPE`, `N_LOANS`, `GROSS_LOANS`, `TOTAL_ALLOWANCE`, `COVERAGE_PCT`, `NPL_BALANCE`, `NPL_COVERAGE_PCT` | same |
+| `CAPITAL_ADEQUACY` | `REPORT_MONTH`, `TOTAL_RWA`, `CET1_CAPITAL`, `TIER1_CAPITAL`, `TOTAL_CAPITAL`, `CET1_RATIO`, `TIER1_RATIO`, `TOTAL_CAPITAL_RATIO`, `CET1_STATUS`, `TIER1_STATUS`, `TOTAL_CAPITAL_STATUS` | same |
 
 ## Commands
 
