@@ -25,7 +25,10 @@ SAMPLE_DIR = os.path.join(REPO_ROOT, "sample_data")
 CONFIG_DIR = os.path.join(REPO_ROOT, "config")
 VALIDATIONS_CSV = os.path.join(CONFIG_DIR, "validations_list.csv")
 
-KNOWN_TABLES = ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"]
+KNOWN_TABLES = [
+    "CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB",
+    "MONTHLY_RWA", "DELINQUENCY_AGING", "LLP_COVERAGE", "CAPITAL_ADEQUACY",
+]
 
 
 # ── helpers (inlined to avoid importing the Streamlit/LLM chain) ─────────

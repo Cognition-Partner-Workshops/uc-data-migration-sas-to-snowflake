@@ -112,6 +112,181 @@
     "source": {
       "nodes": [
         { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 24, "len": 580, "text": "Step 1: RWA with CASE risk weights (LOC=1.00)" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 1 RWA)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "LOAN_DETAILS", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 24, "len": 580, "text": "LEFT JOIN RAW.LOAN_DETAILS for LTV risk weights" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 1 RWA)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "DELINQUENCY_AGING", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 64, "len": 550, "text": "Step 2: Delinquency Aging buckets" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 2 Delinquency)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "LOAN_DETAILS", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "DELINQUENCY_AGING", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 64, "len": 550, "text": "LEFT JOIN RAW.LOAN_DETAILS for DAYS_PAST_DUE and PAST_DUE_AMOUNT" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 2 Delinquency)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "STAGING", "type": "Schema" }
+      ],
+      "parent": { "name": "CUST_ACCOUNTS_DAILY", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "LLP_COVERAGE", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 102, "len": 400, "text": "Step 3: Loan Loss Provision Coverage (INNER JOIN LOAN_DETAILS)" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 3 LLP)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "RAW", "type": "Schema" }
+      ],
+      "parent": { "name": "LOAN_DETAILS", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "LLP_COVERAGE", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 102, "len": 400, "text": "INNER JOIN RAW.LOAN_DETAILS for ALLOWANCE_AMT and DAYS_PAST_DUE" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 3 LLP)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "MONTHLY_RWA", "type": "Table" }
+    },
+    "target": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
+        { "name": "FINANCE_DB", "type": "Database" },
+        { "name": "REPORTS", "type": "Schema" }
+      ],
+      "parent": { "name": "CAPITAL_ADEQUACY", "type": "Table" }
+    },
+    "transformations": {
+      "path": "source_codes/JOB04_MONTHLY_REGULATORY.sql",
+      "highlights": [
+        { "start": 131, "len": 350, "text": "Step 4: Capital Adequacy from MONTHLY_RWA" }
+      ],
+      "transformation_display_name": "JOB04_MONTHLY_REGULATORY (Step 4 Capital Adequacy)"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        { "name": "snowflake", "type": "System" },
         { "name": "Custom_DB", "type": "Database" },
         { "name": "STAGING", "type": "Schema" }
       ],

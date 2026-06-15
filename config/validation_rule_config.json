@@ -32,5 +32,89 @@
       "reporting_month_yyyymm",
       "average_monthly_balance"
     ]
+  },
+  {
+    "table": "MONTHLY_RWA",
+    "validation": "distinct_count",
+    "recommended_columns": [
+      "ACCOUNT_TYPE",
+      "CUSTOMER_SEGMENT"
+    ]
+  },
+  {
+    "table": "MONTHLY_RWA",
+    "validation": "sum_amount",
+    "recommended_columns": [
+      "RWA",
+      "TOTAL_EXPOSURE",
+      "N_ACCOUNTS"
+    ]
+  },
+  {
+    "table": "MONTHLY_RWA",
+    "validation": "not_null",
+    "recommended_columns": [
+      "REPORT_MONTH",
+      "ACCOUNT_TYPE",
+      "RISK_WEIGHT",
+      "RWA"
+    ]
+  },
+  {
+    "table": "DELINQUENCY_AGING",
+    "validation": "distinct_count",
+    "recommended_columns": [
+      "ACCOUNT_TYPE",
+      "DELINQ_BUCKET",
+      "REGION_CODE"
+    ]
+  },
+  {
+    "table": "DELINQUENCY_AGING",
+    "validation": "sum_amount",
+    "recommended_columns": [
+      "TOTAL_BALANCE",
+      "TOTAL_PAST_DUE",
+      "N_ACCOUNTS"
+    ]
+  },
+  {
+    "table": "LLP_COVERAGE",
+    "validation": "sum_amount",
+    "recommended_columns": [
+      "GROSS_LOANS",
+      "TOTAL_ALLOWANCE",
+      "NPL_BALANCE"
+    ]
+  },
+  {
+    "table": "LLP_COVERAGE",
+    "validation": "not_null",
+    "recommended_columns": [
+      "REPORT_MONTH",
+      "ACCOUNT_TYPE",
+      "COVERAGE_PCT"
+    ]
+  },
+  {
+    "table": "CAPITAL_ADEQUACY",
+    "validation": "sum_amount",
+    "recommended_columns": [
+      "TOTAL_RWA",
+      "CET1_CAPITAL",
+      "TIER1_CAPITAL",
+      "TOTAL_CAPITAL"
+    ]
+  },
+  {
+    "table": "CAPITAL_ADEQUACY",
+    "validation": "not_null",
+    "recommended_columns": [
+      "REPORT_MONTH",
+      "CET1_RATIO",
+      "TIER1_RATIO",
+      "TOTAL_CAPITAL_RATIO",
+      "CET1_STATUS"
+    ]
   }
 ]
