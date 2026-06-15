@@ -166,6 +166,8 @@ def apply_column_mapping(df: pd.DataFrame, table_name: str) -> pd.DataFrame:
     rename_map: dict[str, str] = {}
     if table_name == "DAILY_BALANCE":
         rename_map = {"date": "BALANCE_DATE", "month": "BALANCE_MONTH"}
+        if "month" in df.columns and pd.api.types.is_datetime64_any_dtype(df["month"]):
+            df["month"] = df["month"].dt.strftime("%Y-%m")
     df = df.rename(columns=rename_map)
     df.columns = [c.upper() for c in df.columns]
     return df

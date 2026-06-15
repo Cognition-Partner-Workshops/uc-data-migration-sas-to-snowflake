@@ -398,6 +398,8 @@ if __name__ == "__main__":
                 "keys": ["CUSTOMER_ID", "ACCOUNT_ID"],
             },
         }
+        from migration.sas_reader import apply_column_mapping
+
         all_passed = True
         for name, cfg in datasets.items():
             src_path = Path(args.source_dir) / f"{name}.csv"
@@ -405,7 +407,7 @@ if __name__ == "__main__":
             if not src_path.exists() or not tgt_path.exists():
                 print(f"  SKIP {name}: file not found")
                 continue
-            src_df = pd.read_csv(src_path)
+            src_df = apply_column_mapping(pd.read_csv(src_path), name)
             tgt_df = pd.read_csv(tgt_path)
             results = validate_source_target(
                 src_df,
