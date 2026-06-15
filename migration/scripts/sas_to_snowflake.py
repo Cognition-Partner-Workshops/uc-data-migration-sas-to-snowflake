@@ -342,23 +342,27 @@ def run_migration(source_dir: Path, output_dir: Path, scenario: str) -> dict:
     """Execute the full migration pipeline.
 
     Returns a summary dict with row counts and checksums per table.
+    Supports both SAS7BDAT and CSV source files (CSV fallback when SAS not present).
     """
     summary = {}
 
     for table_name in TABLES:
         sas_path = source_dir / f"{table_name}.sas7bdat"
+        csv_source_path = source_dir / f"{table_name}.csv"
 
-        if not sas_path.exists():
-            print(f"[WARN] SAS file not found: {sas_path}, skipping.")
+        if sas_path.exists():
+            print(f"[INFO] Processing {table_name} (SAS7BDAT)...")
+            df, metadata = read_sas_file(sas_path)
+            print(f"  SAS types: {metadata['original_types']}")
+        elif csv_source_path.exists():
+            print(f"[INFO] Processing {table_name} (CSV fallback)...")
+            df = pd.read_csv(csv_source_path)
+        else:
+            print(f"[WARN] No SAS or CSV file found for {table_name} in {source_dir}, skipping.")
             continue
 
-        print(f"[INFO] Processing {table_name}...")
-
-        # 1. Read SAS file
-        df, metadata = read_sas_file(sas_path)
         source_rows = len(df)
         print(f"  Source rows: {source_rows}")
-        print(f"  SAS types: {metadata['original_types']}")
 
         # 2. Transform
         transform_fn = TRANSFORM_MAP[table_name]

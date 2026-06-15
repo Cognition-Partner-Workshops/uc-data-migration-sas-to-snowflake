@@ -130,6 +130,8 @@ python migration/scripts/sas_to_snowflake.py \
     --source-dir sample_data/Scenario2 --scenario scenario2
 ```
 
+The script supports both `.sas7bdat` and `.csv` source files. When a SAS file is not present (e.g., in Scenario1/ and Scenario2/ directories which contain only CSVs), it falls back to reading the CSV directly and applying the same transformations.
+
 Output: cleaned CSV files in `migration/output/<scenario>/`
 
 #### 2. Stage Files in Snowflake
