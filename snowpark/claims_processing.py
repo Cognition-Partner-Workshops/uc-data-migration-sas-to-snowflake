@@ -121,7 +121,10 @@ def claims_processing(session: Session, proc_date: str) -> str:
             "ALERT_REASON",
             concat_ws(
                 lit("; "),
-                concat_ws(lit(" "), lit("Fraud score:"), col("FRAUD_SCORE").cast(StringType())),
+                concat_ws(
+                    lit(" "), lit("Fraud score:"),
+                    col("FRAUD_SCORE").cast("INTEGER").cast(StringType()),
+                ),
                 col("INDICATOR_FLAGS"),
             ),
         )
@@ -200,10 +203,10 @@ def claims_processing(session: Session, proc_date: str) -> str:
                 lit("PEND"),
                 concat_ws(
                     lit("; "),
-                    when(col("FRAUD_RISK") == "MEDIUM", lit("Medium fraud risk")).otherwise(lit("")),
-                    when(col("CLAIMED_AMOUNT") > 50000, lit("Large claim")).otherwise(lit("")),
+                    when(col("FRAUD_RISK") == "MEDIUM", lit("Medium fraud risk")),
+                    when(col("CLAIMED_AMOUNT") > 50000, lit("Large claim")),
                     when(col("CLAIMED_AMOUNT") > col("SUM_INSURED") * 0.25,
-                         lit("Exceeds 25% threshold")).otherwise(lit("")),
+                         lit("Exceeds 25% threshold")),
                 ),
                 lit(None).cast("DOUBLE"),
             ],
@@ -222,7 +225,11 @@ def claims_processing(session: Session, proc_date: str) -> str:
     )
 
     combined.write.mode("append").save_as_table("STG_INS.CLAIMS_REGISTER")
-    manual_review.write.mode("append").save_as_table(
+
+    # SAS: PROC APPEND data=WORK.MANUAL_REVIEW — which includes both DENY
+    # (HIGH fraud, routed to manual review per SAS line 140) and PEND claims
+    review_queue = denied.union_all(manual_review)
+    review_queue.write.mode("append").save_as_table(
         "STG_INS.CLAIMS_REVIEW_QUEUE"
     )
 
