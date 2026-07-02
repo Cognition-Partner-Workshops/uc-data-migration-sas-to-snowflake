@@ -255,7 +255,7 @@ def print_report(
         sas_val = row.get("SAS Value", "")
         sf_val = row.get("SF Value", "")
         col = row.get("SAS Column", "")
-        marker = "PASS" if status == "PASS" else f"FAIL <<<" if status == "FAIL" else status
+        marker = "PASS" if status == "PASS" else "FAIL <<<" if status == "FAIL" else status
         col_label = f" [{col}]" if col and col != "NA" else ""
         print(f"  {test}{col_label}: SAS={sas_val}  SF={sf_val}  -> {marker}")
 

@@ -5,12 +5,13 @@
 #   make validate-all                        # all scenarios
 #   make dashboard                           # launch Streamlit UI
 #   make lint                                # ruff check
+#   make migrate                             # generate Snowflake load artifacts
 
 SCENARIO ?= Scenario1
 TABLE ?=
 PYTHON ?= python3
 
-.PHONY: validate validate-all dashboard lint
+.PHONY: validate validate-all dashboard lint migrate
 
 validate:
 ifdef TABLE
@@ -33,3 +34,7 @@ dashboard:
 
 lint:
 	$(PYTHON) -m ruff check . --exclude=".git,__pycache__,*.egg-info"
+
+migrate:
+	$(PYTHON) migration/sas_to_snowflake.py --all
+	$(PYTHON) migration/generate_validation_sql.py

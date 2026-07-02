@@ -15,6 +15,8 @@ A validation framework for SAS-to-Snowflake data migrations, including lineage m
 │   │   ├── DAILY_BALANCE.*       # Daily balance snapshots
 │   │   └── MONTHLY_AMB.*         # Monthly average balances
 │   └── Scenario2/                # Delta migration scenario
+├── migration/                    # SAS→Snowflake load prep CLI tools
+├── snowflake_sql/ddl/            # Snowflake DDL for the migration toolkit
 ├── config/
 │   ├── validation_rule_config.json   # Validation rules for migration QA
 │   └── validations_list.csv          # Validation checklist
@@ -22,6 +24,16 @@ A validation framework for SAS-to-Snowflake data migrations, including lineage m
 ├── llm_agents/                   # LLM-powered migration recommendations
 └── test_code/                    # Validation test scripts
 ```
+
+## SAS→Snowflake Load Toolkit
+
+- [`SAS_TO_SNOWFLAKE_MIGRATION.md`](SAS_TO_SNOWFLAKE_MIGRATION.md)
+- [`snowflake_sql/ddl/`](snowflake_sql/ddl/)
+- [`migration/`](migration/)
+
+The toolkit generates Snowflake DDL, load-ready CSVs, COPY INTO statements, and
+validation SQL for the sample `CUST_ACCOUNTS`, `DAILY_BALANCE`, and
+`MONTHLY_AMB` datasets.
 
 ## Quick Start
 
