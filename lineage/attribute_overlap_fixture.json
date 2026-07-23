@@ -1,0 +1,29 @@
+{
+  "attributes": [
+    {"attribute": "account_id", "tables": ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"], "platforms": ["SAS", "Snowflake"], "table_count": 3},
+    {"attribute": "account_type", "tables": ["CUST_ACCOUNTS"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "average_monthly_balance", "tables": ["MONTHLY_AMB"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "customer_id", "tables": ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"], "platforms": ["SAS", "Snowflake"], "table_count": 3},
+    {"attribute": "date", "tables": ["DAILY_BALANCE"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "date_computed", "tables": ["MONTHLY_AMB"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "end_date", "tables": ["CUST_ACCOUNTS"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "end_of_day_balance", "tables": ["DAILY_BALANCE"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "is_active", "tables": ["CUST_ACCOUNTS"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "month", "tables": ["DAILY_BALANCE"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "reporting_month_yyyymm", "tables": ["MONTHLY_AMB"], "platforms": ["SAS", "Snowflake"], "table_count": 1},
+    {"attribute": "start_date", "tables": ["CUST_ACCOUNTS"], "platforms": ["SAS", "Snowflake"], "table_count": 1}
+  ],
+  "overlap_matrix": {
+    "tables": ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"],
+    "shared_counts": [[6, 2, 2], [2, 5, 2], [2, 2, 5]],
+    "jaccard": [[1.0, 0.2222, 0.2222], [0.2222, 1.0, 0.25], [0.2222, 0.25, 1.0]]
+  },
+  "suggested_domains": [
+    {
+      "domain": "account_id / customer_id",
+      "tables": ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"],
+      "key_attributes": ["account_id", "customer_id"],
+      "attributes": ["account_id", "account_type", "average_monthly_balance", "customer_id", "date", "date_computed", "end_date", "end_of_day_balance", "is_active", "month", "reporting_month_yyyymm", "start_date"]
+    }
+  ]
+}

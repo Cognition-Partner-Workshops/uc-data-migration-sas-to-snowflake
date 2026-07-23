@@ -1,5 +1,6 @@
 import io
 import os
+import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -22,6 +23,7 @@ import streamlit.components.v1 as components
 # Session State Initialization
 # ------------------------------------------------------------------------
 from lineage.lineage_functions import generate_lineage_graph, collect_upstream_tables
+from lineage.attribute_overlap import compute_attribute_overlap
 from helper_functions import decode_value, suggest_columns_for_rule, validate_datasets
 from helper_functions import load_validations_from_csv, update_validations_in_csv
 from llm_agents.llm_reports import generate_llm_summary
@@ -627,6 +629,58 @@ if st.session_state.sas_df is not None and st.session_state.sf_df is not None:
         st.subheader(f"**Snowflake Data: {st.session_state.sf_table_name} **")
         #st.dataframe(st.session_state.sf_df.head(), hide_index=True)
         st.table(st.session_state.sf_df.head())
+
+# ---------------------------
+# Attribute Overlap
+# ---------------------------
+    st.markdown("---")
+    st.subheader("\U0001F50D Attribute Overlap")
+    overlap_data = compute_attribute_overlap("lineage/SAS_lineage.json", "lineage/SF_lineage.json", "sample_data")
+
+    st.markdown("**Overlap Matrix**")
+    matrix = overlap_data["overlap_matrix"]
+    matrix_tables = matrix["tables"]
+    heatmap_rows = []
+    for i, t1 in enumerate(matrix_tables):
+        for j, t2 in enumerate(matrix_tables):
+            heatmap_rows.append({
+                "table_a": t1,
+                "table_b": t2,
+                "jaccard": matrix["jaccard"][i][j],
+                "shared_count": matrix["shared_counts"][i][j],
+            })
+    heatmap_df = pd.DataFrame(heatmap_rows)
+    base = alt.Chart(heatmap_df).encode(
+        x=alt.X("table_b:N", title="Table"),
+        y=alt.Y("table_a:N", title="Table"),
+    )
+    heatmap = base.mark_rect().encode(
+        color=alt.Color("jaccard:Q", scale=alt.Scale(scheme="blues"), title="Jaccard"),
+        tooltip=[
+            alt.Tooltip("table_a:N", title="Table A"),
+            alt.Tooltip("table_b:N", title="Table B"),
+            alt.Tooltip("jaccard:Q", title="Jaccard"),
+            alt.Tooltip("shared_count:Q", title="Shared Attributes"),
+        ],
+    )
+    labels = base.mark_text(fontSize=14).encode(
+        text=alt.Text("shared_count:Q"),
+        color=alt.condition(alt.datum.jaccard > 0.5, alt.value("white"), alt.value("black")),
+    )
+    st.altair_chart(heatmap + labels, use_container_width=True)
+
+    st.markdown("**Attributes**")
+    attributes_df = pd.DataFrame(overlap_data["attributes"])
+    attributes_df["tables"] = attributes_df["tables"].apply(lambda x: ", ".join(x))
+    attributes_df["platforms"] = attributes_df["platforms"].apply(lambda x: ", ".join(x))
+    st.dataframe(attributes_df, hide_index=True, use_container_width=True)
+
+    st.markdown("**Suggested Data Domains**")
+    for domain in overlap_data["suggested_domains"]:
+        with st.expander(f"Domain: {domain['domain']} ({len(domain['tables'])} tables)"):
+            st.markdown(f"**Tables:** {', '.join(domain['tables'])}")
+            st.markdown(f"**Key Attributes:** {', '.join(domain['key_attributes']) if domain['key_attributes'] else 'None'}")
+            st.markdown(f"**Attributes:** {', '.join(domain['attributes'])}")
 
 # ---------------------------
 # Validation Selection - Configuration
