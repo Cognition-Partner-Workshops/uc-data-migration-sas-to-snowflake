@@ -528,9 +528,9 @@ if st.sidebar.button("🔄 Reset App"):
 #Select Environments
 # Example predefined SF file locations
 sf_file_options = {
-    "Development (Scenario 3)": "./sample_data/Scenario2/",
-    "Integration Test (Scenario 2)": "./sample_data/Scenario1/",
-    "Production (Scenario 1)": "./sample_data/"
+    "Development (Scenario 2)": "./sample_data/Scenario2/",
+    "Integration Test (Scenario 1)": "./sample_data/Scenario1/",
+    "Production (Baseline)": "./sample_data/"
 }
 
 # Use radio buttons for single selection
@@ -538,6 +538,7 @@ selected_sf_source = st.sidebar.radio(
     "Select Environment (Scenario):",
     options=list(sf_file_options.keys())
 )
+st.sidebar.caption(f"Data path: {sf_file_options[selected_sf_source]}")
 
 # Upload files
 st.sidebar.header("Upload SAS Dataset for Validation")
