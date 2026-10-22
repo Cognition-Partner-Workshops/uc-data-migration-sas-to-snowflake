@@ -53,11 +53,15 @@ AS
     EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB02_DAILY_TRANSACTIONS.sql;
 
 
--- JOB03: Calculate Monthly Average Balance
+-- JOB03: Calculate Monthly Average Balance (replaces inline batch step JOB03_CALC_AMB)
+-- Appends the just-completed month to STAGING.MONTHLY_AMB, so it only
+-- needs to run on the first day of each month. JOB03_CALC_AMB.sql reads
+-- $run_date (defaults to CURRENT_DATE) and scopes to the prior month.
 CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB
     WAREHOUSE = WH_BATCH_ETL
     AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
-    COMMENT = 'Calculate monthly AMB — no is_active filter (matches SAS source)'
+    WHEN DAYOFMONTH(CURRENT_DATE()) = 1
+    COMMENT = 'Calculate monthly AMB for the prior month — no is_active filter (matches SAS source)'
 AS
     EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB03_CALC_AMB.sql;
 
