@@ -70,6 +70,17 @@ The `lineage/` directory contains Collibra-style lineage JSON mapping data flows
 
 The Streamlit app provides a visual interface for executing and reviewing validation results against the rules defined in `config/validation_rule_config.json`.
 
+## Monthly customer balance summary report
+
+The report renders the monthly average balance results from either the legacy SAS sample data or the Snowflake JOB03 dual-run output:
+
+```bash
+python reports/monthly_balance_summary.py legacy --out reports/output/legacy.html
+python reports/monthly_balance_summary.py snowflake --out reports/output/snowflake.html
+```
+
+The Snowflake source uses key-pair JWT authentication and requires `SFNFR_ACCOUNT`, `SFNFR_USER`, `SFNFR_ROLE`, and `SFNFR_PRIVATE_KEY` environment variables. It uses warehouse `WH_SAS_AMB` by default; set `SFNFR_WAREHOUSE` to override it. By default it reads `SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.MONTHLY_AMB` and `SFNFR_20261104.SAS_AMB_SRC_SFNFR_20261104.CUST_ACCOUNTS`, produced by the JOB03 dual run in PR #17. Open the report URL with `#customer=<id>` to select that customer's detail.
+
 ## Related Repositories
 
 | Repo | Purpose |
