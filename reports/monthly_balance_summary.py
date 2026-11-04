@@ -160,8 +160,8 @@ border-radius:6px;padding:14px 18px;margin-top:14px} h2{font-size:16px;margin:0 
 border-radius:6px;padding:10px 12px}.kpi span{display:block;font-size:12px;color:#52606d}
 .kpi b{font-size:18px} table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}
 th,td{padding:5px 8px;border-bottom:1px solid #e4e7eb;text-align:left}th{background:#f0f4f8}
-.num{text-align:right;font-variant-numeric:tabular-nums}.grid{display:flex;gap:18px}
-.grid>div{flex:1} a{color:#1170b5} form{margin-bottom:8px;font-size:13px}
+.num{text-align:right;font-variant-numeric:tabular-nums}.grid{display:flex;gap:18px;flex-wrap:wrap}
+.grid>div{flex:1;min-width:300px} a{color:#1170b5} form{margin-bottom:8px;font-size:13px}
 input{width:90px;padding:3px} tfoot td{font-weight:600}
 """
 
