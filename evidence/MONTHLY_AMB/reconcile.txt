@@ -1,0 +1,13 @@
+/home/ubuntu/sfenv/bin/python verify/reconcile.py --table MONTHLY_AMB --scenario Scenario_SFNFR_20261104
+
+========================================================================
+  Reconciliation Report: MONTHLY_AMB  (Scenario_SFNFR_20261104)
+  Overall: PASS
+========================================================================
+  Row Count: SAS=1980.0  SF=1980.0  -> PASS
+  Distinct Count [customer_id]: SAS=1000.0  SF=1000.0  -> PASS
+  Sum Amount [average_monthly_balance]: SAS=5702328.99  SF=5702328.99  -> PASS
+========================================================================
+
+
+All reconciliation checks PASSED.

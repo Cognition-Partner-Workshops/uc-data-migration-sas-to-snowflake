@@ -1,0 +1,132 @@
+{
+  "table": "MONTHLY_AMB",
+  "legacy_fqn": "SFNFR_20261104.SAS_AMB_LEGACY_SFNFR_20261104.MONTHLY_AMB",
+  "new_fqn": "SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.MONTHLY_AMB",
+  "key_columns": [
+    "customer_id",
+    "account_id",
+    "reporting_month_yyyymm"
+  ],
+  "rows_in": 124740,
+  "legacy_rows": 1980,
+  "new_rows": 1980,
+  "mismatches": 0,
+  "legacy_checksum": "-6873172765739195680",
+  "new_checksum": "-6873172765739195680",
+  "multiset_legacy_only": 0,
+  "multiset_new_only": 0,
+  "duplicate_key_groups": [
+    0,
+    0
+  ],
+  "profiles_match": true,
+  "batch_parameters_match": true,
+  "legacy_profile": {
+    "CUSTOMER_ID": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1000,
+      "min": 1001,
+      "max": 2000,
+      "sum": "2978189.000000",
+      "min_length": 4,
+      "max_length": 4
+    },
+    "ACCOUNT_ID": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1980,
+      "min": "004efa9e",
+      "max": "fff7f7d6",
+      "sum": null,
+      "min_length": 8,
+      "max_length": 8
+    },
+    "REPORTING_MONTH_YYYYMM": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1,
+      "min": 202507,
+      "max": 202507,
+      "sum": "400963860.000000",
+      "min_length": 6,
+      "max_length": 6
+    },
+    "AVERAGE_MONTHLY_BALANCE": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1977,
+      "min": 136.96,
+      "max": 7675.76,
+      "sum": "5702328.990000",
+      "min_length": 4,
+      "max_length": 7
+    },
+    "DATE_COMPUTED": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1,
+      "min": "2025-08-01",
+      "max": "2025-08-01",
+      "sum": null,
+      "min_length": 10,
+      "max_length": 10
+    }
+  },
+  "new_profile": {
+    "CUSTOMER_ID": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1000,
+      "min": 1001,
+      "max": 2000,
+      "sum": "2978189.000000",
+      "min_length": 4,
+      "max_length": 4
+    },
+    "ACCOUNT_ID": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1980,
+      "min": "004efa9e",
+      "max": "fff7f7d6",
+      "sum": null,
+      "min_length": 8,
+      "max_length": 8
+    },
+    "REPORTING_MONTH_YYYYMM": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1,
+      "min": 202507,
+      "max": 202507,
+      "sum": "400963860.000000",
+      "min_length": 6,
+      "max_length": 6
+    },
+    "AVERAGE_MONTHLY_BALANCE": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1977,
+      "min": 136.96,
+      "max": 7675.76,
+      "sum": "5702328.990000",
+      "min_length": 4,
+      "max_length": 7
+    },
+    "DATE_COMPUTED": {
+      "count": 1980,
+      "nulls": 0,
+      "distinct": 1,
+      "min": "2025-08-01",
+      "max": "2025-08-01",
+      "sum": null,
+      "min_length": 10,
+      "max_length": 10
+    }
+  },
+  "mismatch_samples": [],
+  "reporting_month": 202507,
+  "run_date": "2025-08-01",
+  "status": "PASS"
+}

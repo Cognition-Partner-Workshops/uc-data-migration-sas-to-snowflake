@@ -1,0 +1,20 @@
+{
+  "task": "SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.AMB_CONFIG_SMOKE_06F32E42",
+  "config": {
+    "amb": {
+      "source_namespace": "SFNFR_20261104.SAS_AMB_SRC_SFNFR_20261104",
+      "target_namespace": "SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104",
+      "reporting_month": 202507,
+      "run_date": "2025-08-01"
+    }
+  },
+  "body_source": "snowflake_sql/orchestration/tasks.sql JOB03, unmodified",
+  "production_dag_activated": false,
+  "execute_result": {
+    "MESSAGE": "Task graph 'SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.AMB_CONFIG_SMOKE_06F32E42' completed.",
+    "GRAPH_RUN_GROUP_ID": "39ae79e8-3f51-4978-b086-bdfaa8a1e918",
+    "STATUS": "SUCCEEDED"
+  },
+  "success": true,
+  "task_dropped": true
+}
