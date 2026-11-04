@@ -55,11 +55,18 @@ AS
 
 -- JOB03: Calculate Monthly Average Balance
 CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB
-    WAREHOUSE = WH_BATCH_ETL
+    WAREHOUSE = WH_SAS_AMB
     AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
     COMMENT = 'Calculate monthly AMB — no is_active filter (matches SAS source)'
 AS
-    EXECUTE IMMEDIATE FROM @FINANCE_DB.PUBLIC.SQL_STAGE/JOB03_CALC_AMB.sql;
+    -- Deploy JOB03_CALC_AMB.sql into the SF namespace first. Explicit batch
+    -- parameters survive Task sessions; the root SELECT does not propagate them.
+    CALL SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.SP_JOB03_CALC_AMB(
+        'SFNFR_20261104.SAS_AMB_SRC_SFNFR_20261104',
+        'SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104',
+        202507,
+        '2025-08-01'::DATE
+    );
 
 
 -- JOB04: Monthly Regulatory Reporting (conditional — runs on 3rd business day)
