@@ -137,4 +137,6 @@ would hide duplicates. Duplicate business-key groups are also checked explicitly
 L2 profiles cover count, nulls, distinct, min/max, numeric sum and value lengths;
 FLOAT sums are compared at the same six-place precision as canonical numbers.
 Any mismatch, profile difference or duplicate key makes `compare` exit nonzero.
+Both outputs' reporting-month and run-date profiles must also match the requested
+batch parameters; two matching July tables cannot certify an August replay.
 Neither `verify/reconcile.py` nor `config/validations_list.csv` is modified.

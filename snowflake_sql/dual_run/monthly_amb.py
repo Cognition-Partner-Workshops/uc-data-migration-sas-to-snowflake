@@ -153,6 +153,14 @@ def profile(cur, table: str):
     return result
 
 
+def matches_batch(column_profile, reporting_month: int, run_date: date) -> bool:
+    for column, expected in [("REPORTING_MONTH_YYYYMM", reporting_month), ("DATE_COMPUTED", run_date)]:
+        stats = column_profile[column]
+        if stats["nulls"] or (stats["count"] and (stats["min"] != expected or stats["max"] != expected)):
+            return False
+    return True
+
+
 def compare(cur, args):
     source, legacy, target = namespaces(args)
     expression, keys, queries = canonical_expression(), ", ".join(KEYS), []
@@ -185,6 +193,7 @@ def compare(cur, args):
     duplicates = [query(f"SELECT COUNT(*) FROM (SELECT {keys} FROM {view} "
                         f"GROUP BY {keys} HAVING COUNT(*) > 1)").fetchone()[0] for view in (left, right)]
     profiles = [profile(cur, f"{namespace}.MONTHLY_AMB") for namespace in (legacy, target)]
+    batch_matches = all(matches_batch(item, args.reporting_month, args.run_date) for item in profiles)
     rows_in = sum(query(f"SELECT COUNT(*) FROM {source}.{table}").fetchone()[0]
                   for table in ("CUST_ACCOUNTS", "DAILY_BALANCE"))
     result = {
@@ -195,12 +204,13 @@ def compare(cur, args):
         "new_checksum": str(checksums[1][1]), "multiset_legacy_only": multiset[0],
         "multiset_new_only": multiset[1], "duplicate_key_groups": duplicates,
         "profiles_match": profiles[0] == profiles[1],
+        "batch_parameters_match": batch_matches,
         "legacy_profile": profiles[0], "new_profile": profiles[1],
         "mismatch_samples": differences[:20], "reporting_month": args.reporting_month,
         "run_date": args.run_date.isoformat(),
     }
     passed = (checksums[0] == checksums[1] and not differences and not any(multiset)
-              and not any(duplicates) and profiles[0] == profiles[1])
+              and not any(duplicates) and profiles[0] == profiles[1] and batch_matches)
     result["status"] = "PASS" if passed else "FAIL"
     write_json(args.evidence_dir / "parity.json", result)
     (args.evidence_dir / "canonical_diff.sql").write_text("\n\n".join(queries) + "\n")

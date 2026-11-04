@@ -12,6 +12,7 @@ from monthly_amb import (
     TABLES,
     canonical_expression,
     identifier,
+    matches_batch,
     read_sas,
     sas_value,
 )
@@ -123,3 +124,20 @@ def test_banking_task_requires_explicit_graph_config_not_replay_defaults():
         assert f"SYSTEM$GET_TASK_GRAPH_CONFIG('amb.{key}')" in node
     assert "SFNFR_" not in node
     assert "202507" not in node
+
+
+@pytest.mark.parametrize("column,change,expected", [
+    ("REPORTING_MONTH_YYYYMM", {}, True),
+    ("REPORTING_MONTH_YYYYMM", {"min": 202508, "max": 202508}, False),
+    ("REPORTING_MONTH_YYYYMM", {"max": 202508}, False),
+    ("DATE_COMPUTED", {"min": date(2025, 9, 1), "max": date(2025, 9, 1)}, False),
+    ("DATE_COMPUTED", {"max": date(2025, 9, 1)}, False),
+    ("DATE_COMPUTED", {"nulls": 1}, False),
+])
+def test_comparison_checks_actual_output_batch(column, change, expected):
+    column_profile = {
+        "REPORTING_MONTH_YYYYMM": {"count": 1980, "nulls": 0, "min": 202507, "max": 202507},
+        "DATE_COMPUTED": {"count": 1980, "nulls": 0, "min": date(2025, 8, 1), "max": date(2025, 8, 1)},
+    }
+    column_profile[column].update(change)
+    assert matches_batch(column_profile, 202507, date(2025, 8, 1)) is expected

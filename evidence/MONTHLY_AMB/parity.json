@@ -20,6 +20,7 @@
     0
   ],
   "profiles_match": true,
+  "batch_parameters_match": true,
   "legacy_profile": {
     "CUSTOMER_ID": {
       "count": 1980,

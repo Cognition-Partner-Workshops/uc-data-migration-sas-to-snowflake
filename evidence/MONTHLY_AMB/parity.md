@@ -44,3 +44,13 @@ identifier rejection, inactive accounts, month isolation, both join keys,
 rounding, fixed run date, canonical column order, and full frozen-window SQL
 parity independently executed with DuckDB. DuckDB is a local regression engine,
 not a replacement for the Snowflake dual-run evidence.
+
+Review regression checks: **22 tests PASS**, plus Ruff and Pyright. The Task's
+scripting body compiled and executed against SRC/SF with graph-config values
+bound directly for the smoke test; a missing source namespace raised the expected
+`MISSING_CONFIG` exception before any output write. No Task was activated.
+The banking node now requires explicit root graph configuration, rather than
+fixed replay namespaces or dates. Live negative comparisons for month 202508
+and run date 2025-09-01 each exited nonzero with `batch_parameters_match=false`,
+despite the unchanged July tables matching each other. The positive comparison
+remains PASS for 202507 / 2025-08-01.
