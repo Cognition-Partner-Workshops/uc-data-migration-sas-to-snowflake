@@ -59,14 +59,23 @@ CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB
     AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
     COMMENT = 'Calculate monthly AMB — no is_active filter (matches SAS source)'
 AS
-    -- Deploy JOB03_CALC_AMB.sql into the SF namespace first. Explicit batch
-    -- parameters survive Task sessions; the root SELECT does not propagate them.
-    CALL SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104.SP_JOB03_CALC_AMB(
-        'SFNFR_20261104.SAS_AMB_SRC_SFNFR_20261104',
-        'SFNFR_20261104.SAS_AMB_SF_SFNFR_20261104',
-        202507,
-        '2025-08-01'::DATE
-    );
+    -- Configure amb on the root Task; never route this DAG to replay defaults.
+    DECLARE
+        source_namespace VARCHAR := SYSTEM$GET_TASK_GRAPH_CONFIG('amb.source_namespace')::VARCHAR;
+        target_namespace VARCHAR := SYSTEM$GET_TASK_GRAPH_CONFIG('amb.target_namespace')::VARCHAR;
+        reporting_month NUMBER := SYSTEM$GET_TASK_GRAPH_CONFIG('amb.reporting_month')::NUMBER;
+        run_date DATE := SYSTEM$GET_TASK_GRAPH_CONFIG('amb.run_date')::DATE;
+        procedure_name VARCHAR := target_namespace || '.SP_JOB03_CALC_AMB';
+        missing_config EXCEPTION (-20002, 'Configure amb namespaces, reporting_month and run_date on the root Task');
+    BEGIN
+        IF (source_namespace IS NULL OR target_namespace IS NULL
+            OR reporting_month IS NULL OR run_date IS NULL) THEN
+            RAISE missing_config;
+        END IF;
+        CALL IDENTIFIER(:procedure_name)(
+            :source_namespace, :target_namespace, :reporting_month, :run_date
+        );
+    END;
 
 
 -- JOB04: Monthly Regulatory Reporting (conditional — runs on 3rd business day)

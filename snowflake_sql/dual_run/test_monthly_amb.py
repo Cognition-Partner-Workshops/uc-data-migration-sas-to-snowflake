@@ -111,3 +111,15 @@ def test_scenario_export_is_not_used_by_sql():
     sql = Path(ROOT / "snowflake_sql" / "JOB03_CALC_AMB.sql").read_text()
     assert "LEGACY" not in sql
     assert "CURRENT_DATE" not in sql
+
+
+def test_banking_task_requires_explicit_graph_config_not_replay_defaults():
+    sql = (ROOT / "snowflake_sql" / "orchestration" / "tasks.sql").read_text()
+    node = sql.split("-- JOB03: Calculate Monthly Average Balance", 1)[1].split("-- JOB04:", 1)[0]
+    assert "AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS" in node
+    assert "CALL IDENTIFIER(:procedure_name)" in node
+    assert "RAISE missing_config" in node
+    for key in ["source_namespace", "target_namespace", "reporting_month", "run_date"]:
+        assert f"SYSTEM$GET_TASK_GRAPH_CONFIG('amb.{key}')" in node
+    assert "SFNFR_" not in node
+    assert "202507" not in node

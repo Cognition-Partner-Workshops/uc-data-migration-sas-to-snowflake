@@ -56,14 +56,24 @@ and SF namespaces. It never reads LEGACY. `compare` reads both outputs, creates
 session-temporary canonical views only in SF, and exports the **new Snowflake
 table**, not the legacy table, in business-key order.
 
-The existing `snowflake_sql/orchestration/tasks.sql` JOB03 node now calls the
-same procedure on WH_SAS_AMB with explicit frozen-run arguments, retaining
-`AFTER TASK_JOB02_DAILY_TRANSACTIONS` and the JOB04 successor. This file remains
-the existing FINANCE_DB Task-DAG deployment template. **Do not execute the
-whole file for this isolated run**: it also provisions a warehouse and manages
-unrelated jobs outside these schemas. No Tasks were deployed or resumed here;
-the procedure was executed directly. Production Task activation and batch
-parameter policy are separate from this frozen replay.
+The existing `snowflake_sql/orchestration/tasks.sql` JOB03 node calls the same
+procedure on WH_SAS_AMB, retaining `AFTER TASK_JOB02_DAILY_TRANSACTIONS` and the
+JOB04 successor. It reads an `amb` object from the root Task's `CONFIG` using
+`SYSTEM$GET_TASK_GRAPH_CONFIG`: `source_namespace`, `target_namespace`,
+`reporting_month` and `run_date` are required. The procedure must be deployed as
+`<target_namespace>.SP_JOB03_CALC_AMB` first. Missing configuration fails closed;
+there are **no replay namespace/date defaults in the banking DAG**. Operators
+must set the namespaces to the banking inputs/output and provide the batch
+period/date, merging `amb` with any existing root configuration. The source
+namespace must expose the fixture contract `CUST_ACCOUNTS` and `DAILY_BALANCE`;
+adapting unrelated banking jobs' schemas is outside this conversion.
+
+This file remains the existing FINANCE_DB Task-DAG deployment template.
+**Do not execute the whole file for this isolated run**: it also provisions a
+warehouse and manages unrelated jobs outside these schemas. No Tasks were
+deployed or resumed here; the procedure was executed directly with explicit
+replay parameters. Production Task activation and batch configuration are
+separate from this frozen replay.
 
 ## Exact rerun commands
 
