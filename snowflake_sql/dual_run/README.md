@@ -70,10 +70,12 @@ adapting unrelated banking jobs' schemas is outside this conversion.
 
 This file remains the existing FINANCE_DB Task-DAG deployment template.
 **Do not execute the whole file for this isolated run**: it also provisions a
-warehouse and manages unrelated jobs outside these schemas. No Tasks were
-deployed or resumed here; the procedure was executed directly with explicit
-replay parameters. Production Task activation and batch configuration are
-separate from this frozen replay.
+warehouse and manages unrelated jobs outside these schemas. No banking DAG
+Tasks were deployed or resumed; the replay procedure was executed directly.
+A separate, unscheduled SF-schema Task with the unmodified JOB03 body was
+manually executed once to verify nested root configuration, then dropped (see
+`evidence/MONTHLY_AMB/task_config_smoke.json`). Production Task activation and
+batch configuration are separate from this frozen replay.
 
 ## Exact rerun commands
 

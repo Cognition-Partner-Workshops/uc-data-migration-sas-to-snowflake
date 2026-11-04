@@ -48,9 +48,17 @@ not a replacement for the Snowflake dual-run evidence.
 Review regression checks: **22 tests PASS**, plus Ruff and Pyright. The Task's
 scripting body compiled and executed against SRC/SF with graph-config values
 bound directly for the smoke test; a missing source namespace raised the expected
-`MISSING_CONFIG` exception before any output write. No Task was activated.
+`MISSING_CONFIG` exception before any output write. No banking DAG was activated.
 The banking node now requires explicit root graph configuration, rather than
 fixed replay namespaces or dates. Live negative comparisons for month 202508
 and run date 2025-09-01 each exited nonzero with `batch_parameters_match=false`,
 despite the unchanged July tables matching each other. The positive comparison
 remains PASS for 202507 / 2025-08-01.
+
+A second review questioned nested root CONFIG paths. The unmodified JOB03 body
+was deployed as an unscheduled, suspended standalone Task in the owned SF schema,
+with the nested `amb` object in CONFIG. `EXECUTE TASK ... AWAIT` returned
+**SUCCEEDED**, proving the dotted lookups work. The throwaway Task was dropped;
+the banking DAG remained untouched. See [live Task evidence](task_config_smoke.json).
+This finding is a false positive, consistent with Snowflake's documented
+`SYSTEM$GET_TASK_GRAPH_CONFIG` path semantics.
