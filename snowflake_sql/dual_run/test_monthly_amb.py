@@ -20,10 +20,46 @@ from monthly_amb import (
     identifier,
     matches_batch,
     multiset_diff,
+    namespaces,
+    parse_args,
     pushed_head,
     read_sas,
     sas_value,
 )
+
+
+def test_default_schemas_are_isolated_by_resolved_evidence_directory(tmp_path):
+    def resolve(path):
+        return parse_args(["compare", "--evidence-dir", str(path),
+                           "--scenario-dir", str(tmp_path / "scenario")])
+
+    first = resolve(tmp_path / "first")
+    second = resolve(tmp_path / "second")
+    repeated = resolve(tmp_path / "first")
+    equivalent = resolve(tmp_path / "unused" / ".." / "first")
+    assert set(namespaces(first)).isdisjoint(namespaces(second))
+    assert namespaces(first) == namespaces(repeated) == namespaces(equivalent)
+    assert len(set(namespaces(first))) == 3
+    assert all(identifier(schema) == schema for schema in
+               (first.source_schema, first.legacy_schema, first.target_schema))
+
+
+def test_explicit_schemas_preserve_existing_names_and_allow_partial_overrides(tmp_path):
+    options = ["compare", "--evidence-dir", str(tmp_path / "evidence"),
+               "--scenario-dir", str(tmp_path / "scenario")]
+    names = {"source": "MONTHLY_AMB_SRC_SFEXT_20261105A",
+             "legacy": "MONTHLY_AMB_LEGACY_SFEXT_20261105A",
+             "target": "MONTHLY_AMB_SF_SFEXT_20261105A"}
+    explicit = parse_args(options + [item for key, name in names.items()
+                                    for item in (f"--{key}-schema", name)])
+    assert [explicit.source_schema, explicit.legacy_schema, explicit.target_schema] == list(names.values())
+    defaults = parse_args(options)
+    partial = parse_args(options + ["--target-schema", names["target"]])
+    assert partial.target_schema == names["target"]
+    assert partial.source_schema == defaults.source_schema
+    assert partial.legacy_schema == defaults.legacy_schema
+    with pytest.raises(SystemExit):
+        parse_args(options + ["--target-schema", "invalid.schema"])
 
 
 @pytest.mark.parametrize("value", ["x.y", "x; DROP TABLE t", "x'", "x y", ""])
