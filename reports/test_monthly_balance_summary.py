@@ -356,7 +356,7 @@ def test_suspend_polling_and_timeout_preserve_raw_rows(monkeypatch):
     assert evidence["warehouse"] == [row]
 
 
-@pytest.mark.parametrize("failure", ["before", "after", "tasks", "connect", None])
+@pytest.mark.parametrize("failure", ["before", "after", "tasks", "connect", "already_suspended", None])
 def test_evidence_always_written(monkeypatch, tmp_path, failure):
     import json
     from argparse import Namespace
@@ -375,6 +375,9 @@ def test_evidence_always_written(monkeypatch, tmp_path, failure):
 
         def execute(self, sql):
             self.queries.append({"query_id": str(len(self.queries)), "label": sql})
+            if failure == "already_suspended" and sql.startswith("ALTER WAREHOUSE"):
+                raise report.harness.snowflake.connector.errors.ProgrammingError(
+                    msg="Invalid state. Warehouse cannot be suspended.", errno=90064)
 
     class Connection(Cursor):
         def cursor(self):
@@ -403,14 +406,16 @@ def test_evidence_always_written(monkeypatch, tmp_path, failure):
     monkeypatch.setattr(report, "write_report", lambda *a: None)
     args = Namespace(out=tmp_path / "report.html", database="DB", amb_table="DB.S.T",
                      accounts_table="DB.S.A")
-    if failure:
+    if failure and failure != "already_suspended":
         with pytest.raises(RuntimeError):
             report.run_snowflake(args, "commit", "digest")
     else:
         report.run_snowflake(args, "commit", "digest")
     evidence = json.loads(args.out.with_suffix(".evidence.json").read_text())
     assert evidence["run_id"]
-    assert bool(evidence["errors"]) == bool(failure)
+    assert bool(evidence["errors"]) == (failure not in (None, "already_suspended"))
+    if failure == "already_suspended":
+        assert "cannot be suspended" in evidence["suspend_response"]
     if failure != "connect":
         assert evidence["warehouse_before"]
         assert evidence["warehouse_after"]

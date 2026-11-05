@@ -343,7 +343,9 @@ def run_snowflake(args, commit, digest):
                     try:
                         cursor.execute(f"ALTER WAREHOUSE {harness.WAREHOUSE} SUSPEND")
                     except harness.snowflake.connector.errors.ProgrammingError as error:
-                        if "already suspended" not in str(error).lower():
+                        if error.errno == 90064 or "already suspended" in str(error).lower():
+                            evidence["suspend_response"] = str(error)
+                        else:
                             cleanup_errors.append(str(error))
                     except harness.snowflake.connector.errors.Error as error:
                         cleanup_errors.append(str(error))
