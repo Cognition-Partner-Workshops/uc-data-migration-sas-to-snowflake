@@ -445,24 +445,35 @@ def compare(cur, args):
         raise SystemExit("Snowflake row-level parity FAILED; inspect parity.json")
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["provision", "manifest", "load", "run", "compare", "all"])
     parser.add_argument("--database", type=identifier, default=sf.database_name(WORKLOAD))
-    parser.add_argument("--source-schema", type=identifier, default=f"MONTHLY_AMB_SRC_{sf.RUN_TOKEN}")
-    parser.add_argument("--legacy-schema", type=identifier, default=f"MONTHLY_AMB_LEGACY_{sf.RUN_TOKEN}")
-    parser.add_argument("--target-schema", type=identifier, default=f"MONTHLY_AMB_SF_{sf.RUN_TOKEN}")
+    parser.add_argument("--source-schema", type=identifier)
+    parser.add_argument("--legacy-schema", type=identifier)
+    parser.add_argument("--target-schema", type=identifier)
     parser.add_argument("--reporting-month", type=int, default=202507)
     parser.add_argument("--run-date", type=date.fromisoformat, default=date(2025, 8, 1))
     parser.add_argument("--scenario-dir", type=Path, required=True)
     parser.add_argument("--evidence-dir", type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    evidence_path = os.path.normcase(str(args.evidence_dir.resolve()))
+    suffix = hashlib.sha256(evidence_path.encode("utf-8")).hexdigest().upper()
+    for attribute, prefix in (("source_schema", "SRC"), ("legacy_schema", "LEGACY"),
+                              ("target_schema", "SF")):
+        if getattr(args, attribute) is None:
+            setattr(args, attribute, f"MONTHLY_AMB_{prefix}_{sf.RUN_TOKEN}_{suffix}")
     date.fromisoformat(f"{args.reporting_month // 100:04d}-{args.reporting_month % 100:02d}-01")
     if len(set(namespaces(args))) != 3:
         parser.error("SRC, LEGACY and SF must be distinct namespaces")
     for path in (args.evidence_dir, args.scenario_dir):
         if path.resolve().is_relative_to(ROOT):
             parser.error("Output directories must be outside the repository")
+    return args
+
+
+def main():
+    args = parse_args()
     with connect(args) as connection, connection.cursor() as raw:
         cur = RecordedCursor(raw, args.evidence_dir)
         cur.action = args.action
