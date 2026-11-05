@@ -14,6 +14,7 @@ import re
 import sys
 import time
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import pandas as pd
@@ -39,8 +40,11 @@ def _text(value):
 
 
 def _integer(value) -> int:
-    number = float(value)
-    if not number.is_integer():
+    try:
+        number = Decimal(value.decode("utf-8") if isinstance(value, bytes) else str(value))
+    except InvalidOperation as error:
+        raise ValueError(f"Expected an integer identifier, got {value!r}") from error
+    if not number.is_finite() or number != number.to_integral_value():
         raise ValueError(f"Expected an integer identifier, got {value!r}")
     return int(number)
 

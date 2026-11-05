@@ -99,6 +99,22 @@ def test_prepare_normalizes_sas_and_snowflake_shapes_equally() -> None:
     )
 
 
+def test_large_customer_identifiers_remain_distinct():
+    from monthly_balance_summary import _integer
+
+    ids = [2**53, 2**53 + 1]
+    amb, accounts = _tables()
+    amb = pd.concat([amb, amb], ignore_index=True).assign(customer_id=ids)
+    accounts = pd.concat([accounts, accounts], ignore_index=True).assign(customer_id=ids)
+    frame = prepare(amb, accounts)
+    assert list(frame.customer_id) == ids
+    assert summarise(frame)["totals"]["customers"] == 2
+    assert _integer(str(ids[1])) == ids[1]
+    for value in ("1.5", "NaN", "Infinity", "invalid", None):
+        with pytest.raises(ValueError, match="Expected an integer identifier"):
+            _integer(value)
+
+
 def _summary_frame() -> pd.DataFrame:
     return pd.DataFrame(
         [
