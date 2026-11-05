@@ -312,17 +312,112 @@ def test_output_and_disclosures(tmp_path):
 def test_warehouse_and_task_guards(monkeypatch):
     import monthly_balance_summary as report
 
-    row = {"size": "X-Small", "auto_suspend": 60}
-    monkeypatch.setattr(report.harness, "verify_warehouse", lambda *a, **k: row)
+    row = {"name": report.harness.WAREHOUSE, "size": "X-Small", "auto_suspend": 60,
+           "resource_monitor": report.harness.MONITOR, "state": "SUSPENDED"}
+    monkeypatch.setattr(report.harness, "show_rows", lambda *a: [row])
     assert report.warehouse_snapshot(None) == row
-    for bad in ({"size": "Small", "auto_suspend": 60},
-                {"size": "X-Small", "auto_suspend": 600}):
-        row = bad
-        with pytest.raises(RuntimeError, match="no compute"):
+    for field, value in (("size", "Small"), ("auto_suspend", 600),
+                         ("resource_monitor", "WRONG")):
+        good = row.copy()
+        row[field] = value
+        with pytest.raises(RuntimeError, match="observed="):
             report.warehouse_snapshot(None)
+        row = good
+    monkeypatch.setattr(report.harness, "show_rows", lambda *a: [])
+    with pytest.raises(RuntimeError, match="missing.*observed="):
+        report.warehouse_snapshot(None)
     for tasks in ([], [{"state": "suspended"}]):
         monkeypatch.setattr(report.harness, "show_rows", lambda *a, tasks=tasks: tasks)
         assert report.tasks_snapshot(None, "DB") == tasks
     monkeypatch.setattr(report.harness, "show_rows", lambda *a: [{"state": "started"}])
     with pytest.raises(RuntimeError, match="remain suspended"):
         report.tasks_snapshot(None, "DB")
+
+
+def test_suspend_polling_and_timeout_preserve_raw_rows(monkeypatch):
+    import monthly_balance_summary as report
+
+    row = {"name": report.harness.WAREHOUSE, "size": "X-Small", "auto_suspend": 60,
+           "resource_monitor": report.harness.MONITOR, "state": "SUSPENDING"}
+    reads = iter([[row], [{**row, "state": "SUSPENDED"}]])
+    monkeypatch.setattr(report.harness, "show_rows", lambda *a: next(reads))
+    clock = iter([0, 0, 0])
+    monkeypatch.setattr(report.time, "monotonic", lambda: next(clock))
+    sleeps = []
+    monkeypatch.setattr(report.time, "sleep", sleeps.append)
+    evidence = {}
+    assert report.warehouse_snapshot(None, True, evidence=evidence)["state"] == "SUSPENDED"
+    assert sleeps == [2]
+    assert len(evidence["warehouse_readbacks"]) == 2
+    clock = iter([0, 60])
+    monkeypatch.setattr(report.harness, "show_rows", lambda *a: [row])
+    with pytest.raises(RuntimeError, match="state.*observed='SUSPENDING'.*timeout=60s"):
+        report.warehouse_snapshot(None, True, evidence=evidence)
+    assert evidence["warehouse"] == [row]
+
+
+@pytest.mark.parametrize("failure", ["before", "after", "tasks", "connect", None])
+def test_evidence_always_written(monkeypatch, tmp_path, failure):
+    import json
+    from argparse import Namespace
+
+    import monthly_balance_summary as report
+
+    class Cursor:
+        def __init__(self):
+            self.queries = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, sql):
+            self.queries.append({"query_id": str(len(self.queries)), "label": sql})
+
+    class Connection(Cursor):
+        def cursor(self):
+            return Cursor()
+
+    def connect(**params):
+        if failure == "connect":
+            raise RuntimeError("connection error")
+        return Connection()
+
+    def show(cursor, sql):
+        cursor.execute(sql)
+        if "TASKS" in sql:
+            return [{"name": "TASK", "state": "started" if failure == "tasks" else "suspended"}]
+        after = any("SUSPEND" in query["label"] and "ALTER" in query["label"]
+                    for query in cursor.queries)
+        bad = failure == "before" or (failure == "after" and after)
+        return [{"name": report.harness.WAREHOUSE, "state": "SUSPENDED", "size": "X-Small",
+                 "auto_suspend": 60, "resource_monitor": "WRONG" if bad else report.harness.MONITOR}]
+
+    monkeypatch.setattr(report.harness, "connection_arguments", lambda *a: {})
+    monkeypatch.setattr(report.harness.snowflake.connector, "connect", connect)
+    monkeypatch.setattr(report.harness, "RecordedCursor", lambda raw, path: raw)
+    monkeypatch.setattr(report.harness, "show_rows", show)
+    monkeypatch.setattr(report, "load_snowflake", lambda *a: None)
+    monkeypatch.setattr(report, "write_report", lambda *a: None)
+    args = Namespace(out=tmp_path / "report.html", database="DB", amb_table="DB.S.T",
+                     accounts_table="DB.S.A")
+    if failure:
+        with pytest.raises(RuntimeError):
+            report.run_snowflake(args, "commit", "digest")
+    else:
+        report.run_snowflake(args, "commit", "digest")
+    evidence = json.loads(args.out.with_suffix(".evidence.json").read_text())
+    assert evidence["run_id"]
+    assert bool(evidence["errors"]) == bool(failure)
+    if failure != "connect":
+        assert evidence["warehouse_before"]
+        assert evidence["warehouse_after"]
+        assert evidence["tasks_after"]
+        assert evidence["queries"]
+        assert all(q["run_id"] == evidence["run_id"] for q in evidence["queries"])
+        if failure == "before":
+            assert not any("USE WAREHOUSE" in q["label"] for q in evidence["queries"])
+        if failure in ("after", "tasks", None):
+            assert evidence["tasks_before"]

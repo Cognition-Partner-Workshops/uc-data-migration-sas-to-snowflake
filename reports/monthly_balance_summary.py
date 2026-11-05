@@ -12,6 +12,7 @@ import html
 import json
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -277,18 +278,96 @@ def outside_repo(path):
     return path
 
 
-def warehouse_snapshot(cursor, suspended=False):
-    row = harness.verify_warehouse(cursor, suspended=suspended)
-    if str(row["size"]).upper() != "X-SMALL" or row["auto_suspend"] != 60:
-        raise RuntimeError("Warehouse must be X-Small with auto_suspend 60; no compute was run")
-    return row
+def warehouse_snapshot(cursor, suspended=False, *, evidence=None, key="warehouse",
+                       timeout=60, interval=2):
+    deadline = time.monotonic() + timeout
+    while True:
+        rows = harness.show_rows(cursor, f"SHOW WAREHOUSES LIKE '{harness.WAREHOUSE}'")
+        if evidence is not None:
+            evidence[key] = rows
+            evidence.setdefault("warehouse_readbacks", []).append({"phase": key, "rows": rows})
+        matching = [row for row in rows if str(row.get("name")).upper() == harness.WAREHOUSE]
+        if len(matching) != 1:
+            raise RuntimeError(f"Warehouse missing: expected one {harness.WAREHOUSE}; observed={rows!r}")
+        row = matching[0]
+        for condition, observed, expected in (
+            ("monitor", row.get("resource_monitor"), harness.MONITOR),
+            ("size", row.get("size"), "X-Small"),
+            ("auto_suspend", row.get("auto_suspend"), 60),
+        ):
+            if str(observed).upper() != str(expected).upper():
+                raise RuntimeError(f"Warehouse {condition}: expected={expected!r}; observed={observed!r}")
+        if not suspended or str(row.get("state")).upper() == "SUSPENDED":
+            return row
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError(f"Warehouse state: expected='SUSPENDED'; observed={row.get('state')!r}; "
+                               f"timeout={timeout}s")
+        time.sleep(min(interval, remaining))
 
 
-def tasks_snapshot(cursor, database):
+def tasks_snapshot(cursor, database, *, evidence=None, key="tasks"):
     rows = harness.show_rows(cursor, f"SHOW TASKS IN DATABASE {database}")
+    if evidence is not None:
+        evidence[key] = rows
     if any(str(row["state"]).upper() != "SUSPENDED" for row in rows):
-        raise RuntimeError("Existing tasks must remain suspended")
+        raise RuntimeError(f"Existing tasks must remain suspended; observed={rows!r}")
     return rows
+
+
+def run_snowflake(args, commit, digest):
+    run_id = harness.sf.make_run_id(harness.WORKLOAD, "dev")
+    evidence = {"run_id": run_id, "commit": commit, "warehouse_before": None,
+                "warehouse_after": None, "tasks_before": None, "tasks_after": None,
+                "queries": [], "errors": []}
+    print(f"run_id={run_id}")
+    cursor = None
+    try:
+        params = harness.connection_arguments(args, commit, run_id)
+        params["enable_server_session_keep_alive_auto_detection"] = False
+        with (harness.snowflake.connector.connect(**params) as connection,
+              connection.cursor() as raw):
+            cursor = harness.RecordedCursor(raw, args.out.parent)
+            verified = False
+            try:
+                warehouse_snapshot(cursor, evidence=evidence, key="warehouse_before")
+                verified = True
+                tasks_snapshot(cursor, args.database, evidence=evidence, key="tasks_before")
+                cursor.execute(f"USE WAREHOUSE {harness.WAREHOUSE}")
+                frame = load_snowflake(cursor, args.amb_table, args.accounts_table)
+                write_report(frame, args, commit, digest)
+            finally:
+                active_error = sys.exc_info()[0] is not None
+                cleanup_errors = []
+                if verified:
+                    try:
+                        cursor.execute(f"ALTER WAREHOUSE {harness.WAREHOUSE} SUSPEND")
+                    except harness.snowflake.connector.errors.ProgrammingError as error:
+                        if "already suspended" not in str(error).lower():
+                            cleanup_errors.append(str(error))
+                    except harness.snowflake.connector.errors.Error as error:
+                        cleanup_errors.append(str(error))
+                for operation in (
+                    lambda: warehouse_snapshot(cursor, suspended=verified, evidence=evidence,
+                                               key="warehouse_after"),
+                    lambda: tasks_snapshot(cursor, args.database, evidence=evidence, key="tasks_after"),
+                ):
+                    try:
+                        operation()
+                    except (RuntimeError, ValueError, KeyError,
+                            harness.snowflake.connector.errors.Error) as error:
+                        cleanup_errors.append(str(error))
+                evidence["errors"].extend(cleanup_errors)
+                if cleanup_errors and not active_error:
+                    raise RuntimeError("; ".join(cleanup_errors))
+    except Exception as error:
+        evidence["errors"].append(str(error))
+        raise
+    finally:
+        if cursor is not None:
+            evidence["queries"] = [{**query, "run_id": run_id} for query in cursor.queries]
+        harness.write_json(args.out.with_suffix(".evidence.json"), evidence)
+        print(json.dumps(evidence, default=str))
 
 
 def write_report(frame, args, commit, digest):
@@ -326,32 +405,7 @@ def main():
         if not FQN.fullmatch(args.amb_table) or not FQN.fullmatch(args.accounts_table):
             raise ValueError("Expected DATABASE.SCHEMA.TABLE")
         args.database, args.target_schema, _ = args.amb_table.split(".")
-        run_id = harness.sf.make_run_id(harness.WORKLOAD, "dev")
-        evidence = {"run_id": run_id, "commit": commit}
-        print(f"run_id={run_id}")
-        with (harness.snowflake.connector.connect(
-                **harness.connection_arguments(args, commit, run_id)) as connection,
-              connection.cursor() as raw):
-                cursor = harness.RecordedCursor(raw, args.out.parent)
-                verified = False
-                try:
-                    evidence["warehouse_before"] = warehouse_snapshot(cursor)
-                    verified = True
-                    evidence["tasks_before"] = tasks_snapshot(cursor, args.database)
-                    cursor.execute(f"USE WAREHOUSE {harness.WAREHOUSE}")
-                    frame = load_snowflake(cursor, args.amb_table, args.accounts_table)
-                    write_report(frame, args, commit, digest)
-                finally:
-                    if verified:
-                        try:
-                            cursor.execute(f"ALTER WAREHOUSE {harness.WAREHOUSE} SUSPEND")
-                        except harness.snowflake.connector.errors.ProgrammingError as error:
-                            if "already suspended" not in str(error).lower():
-                                raise
-                        evidence["warehouse_after"] = warehouse_snapshot(cursor, suspended=True)
-                        evidence["tasks_after"] = tasks_snapshot(cursor, args.database)
-                    harness.write_json(args.out.with_suffix(".evidence.json"), evidence)
-                    print(json.dumps(evidence, default=str))
+        run_snowflake(args, commit, digest)
 
 
 if __name__ == "__main__":
