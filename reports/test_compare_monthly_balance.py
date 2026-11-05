@@ -28,10 +28,23 @@ def test_compare_full_rows_and_embedded_details(tmp_path):
 
 def test_empty_and_missing_differences():
     assert differences([], []) == []
-    assert differences([1], []) == [{"path": "/0", "legacy": 1, "snowflake": None}]
+    assert differences([1], []) == [{"path": "/0", "legacy": 1, "snowflake": None,
+                                    "legacy_missing": False, "snowflake_missing": True}]
     parser = ReportParser()
     parser.feed('<style>hidden</style><header> source </header><p>total</p>')
     assert parser.header == ["source"]
     assert parser.visible == ["total"]
     with pytest.raises(json.JSONDecodeError):
         parser.feed('<script id="details">invalid</script>')
+
+
+def test_missing_fields_are_distinct_from_null():
+    assert differences({}, {}) == []
+    assert differences({"value": None}, {"value": None}) == []
+    assert differences({}, {"value": None}) == [
+        {"path": "/value", "legacy": None, "snowflake": None,
+         "legacy_missing": True, "snowflake_missing": False}]
+    assert differences({"value": None}, {}) == [
+        {"path": "/value", "legacy": None, "snowflake": None,
+         "legacy_missing": False, "snowflake_missing": True}]
+    assert differences([], [None])[0]["legacy_missing"] is True

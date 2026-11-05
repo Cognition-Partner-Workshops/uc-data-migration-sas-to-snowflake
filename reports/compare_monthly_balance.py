@@ -7,6 +7,8 @@ from pathlib import Path
 
 from monthly_balance_summary import outside_repo
 
+MISSING = object()
+
 
 class ReportParser(HTMLParser):
     def __init__(self):
@@ -42,13 +44,20 @@ class ReportParser(HTMLParser):
 
 
 def differences(left, right, path=""):
+    if left is MISSING or right is MISSING:
+        if left is right:
+            return []
+        return [{"path": path, "legacy": None if left is MISSING else left,
+                 "snowflake": None if right is MISSING else right,
+                 "legacy_missing": left is MISSING, "snowflake_missing": right is MISSING}]
     if isinstance(left, dict) and isinstance(right, dict):
         return [difference for key in sorted(left.keys() | right.keys())
-                for difference in differences(left.get(key), right.get(key), f"{path}/{key}")]
+                for difference in differences(left.get(key, MISSING), right.get(key, MISSING),
+                                              f"{path}/{key}")]
     if isinstance(left, list) and isinstance(right, list):
         return [difference for index in range(max(len(left), len(right)))
-                for difference in differences(left[index] if index < len(left) else None,
-                                              right[index] if index < len(right) else None,
+                for difference in differences(left[index] if index < len(left) else MISSING,
+                                              right[index] if index < len(right) else MISSING,
                                               f"{path}/{index}")]
     return [] if left == right else [{"path": path, "legacy": left, "snowflake": right}]
 
