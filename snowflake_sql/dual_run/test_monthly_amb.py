@@ -181,20 +181,62 @@ def test_provision_only_ddl_and_monitor_validation(monkeypatch, tmp_path):
                               target_schema="TARGET", evidence_dir=tmp_path)
     calls = []
     monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: calls.append("monitor") or {"quota": 10})
+    warehouse = {"name": amb.WAREHOUSE, "resource_monitor": amb.MONITOR,
+                 "size": "X-Small", "auto_suspend": 60, "state": "SUSPENDED"}
+    monkeypatch.setattr(amb, "show_rows", lambda cur, sql: [warehouse])
     monkeypatch.setattr(amb, "verify_warehouse",
                         lambda cur, suspended=False: calls.append(suspended) or {"state": "SUSPENDED"})
     amb.provision(cur, args)
-    assert calls == ["monitor", "monitor", True]
+    assert calls == ["monitor", "monitor", "monitor", False]
     assert all(sql.startswith(("CREATE ", "ALTER ")) for sql in statements)
-    assert len(statements) == 7
+    assert len(statements) == 6
+    assert statements[0].startswith("CREATE WAREHOUSE IF NOT EXISTS ")
     assert "INITIALLY_SUSPENDED=TRUE" in statements[0]
-    assert "RESOURCE_MONITOR" in statements[1]
-    assert "SET TAG" in statements[2]
+    assert not any("SET RESOURCE_MONITOR" in sql for sql in statements)
+    assert "SET TAG" in statements[1]
     assert not any(sql.startswith("ALTER DATABASE") for sql in statements)
     snapshots = iter([{"quota": 10}, {"quota": 11}])
     monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: next(snapshots))
     with pytest.raises(RuntimeError, match="changed"):
         amb.provision(cur, args)
+
+
+@pytest.mark.parametrize("existed,monitor", [(True, None), (True, ""), (True, "OTHER"), (False, None)])
+def test_provision_missing_assignment_requires_control_connection(monkeypatch, tmp_path, existed, monitor):
+    import monthly_amb as amb
+    statements = []
+    cur = argparse.Namespace(execute=statements.append)
+    args = argparse.Namespace(database="DB", source_schema="SRC", legacy_schema="LEGACY",
+                              target_schema="TARGET", evidence_dir=tmp_path)
+    warehouse = {"name": amb.WAREHOUSE, "resource_monitor": monitor,
+                 "size": "X-Small", "auto_suspend": 60, "state": "SUSPENDED"}
+    shows = iter([[warehouse] if existed else [], [warehouse]])
+    monkeypatch.setattr(amb, "show_rows", lambda cur, sql: next(shows))
+    monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: {"quota": 10})
+    with pytest.raises(RuntimeError) as error:
+        amb.provision(cur, args)
+    assert "control connection" in str(error.value)
+    assert (f"ALTER WAREHOUSE {amb.WAREHOUSE} SET RESOURCE_MONITOR = {amb.MONITOR};"
+            in str(error.value))
+    assert len(statements) == 1
+    assert statements[0].startswith("CREATE WAREHOUSE IF NOT EXISTS ")
+    assert "INITIALLY_SUSPENDED=TRUE" in statements[0]
+
+
+@pytest.mark.parametrize("size,auto_suspend", [("Small", 60), ("X-Small", 120), ("X-Small", None)])
+def test_provision_rejects_existing_warehouse_settings(monkeypatch, tmp_path, size, auto_suspend):
+    import monthly_amb as amb
+    statements = []
+    cur = argparse.Namespace(execute=statements.append)
+    args = argparse.Namespace(database="DB", source_schema="SRC", legacy_schema="LEGACY",
+                              target_schema="TARGET", evidence_dir=tmp_path)
+    warehouse = {"name": amb.WAREHOUSE, "resource_monitor": amb.MONITOR,
+                 "size": size, "auto_suspend": auto_suspend}
+    monkeypatch.setattr(amb, "show_rows", lambda cur, sql: [warehouse])
+    monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: {"quota": 10})
+    with pytest.raises(RuntimeError, match="size X-Small and auto_suspend 60"):
+        amb.provision(cur, args)
+    assert len(statements) == 1
 
 
 @pytest.mark.parametrize("rows", [[], [{"name": "OTHER", "credit_quota": 10}],

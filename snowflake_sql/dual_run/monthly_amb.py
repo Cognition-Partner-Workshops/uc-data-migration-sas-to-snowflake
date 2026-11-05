@@ -176,10 +176,23 @@ def verify_warehouse(cur, suspended=False):
 
 def provision(cur, args):
     before = monitor_snapshot(cur)
+    existing = show_rows(cur, f"SHOW WAREHOUSES LIKE '{WAREHOUSE}'")
+    existed = any(row["name"].upper() == WAREHOUSE for row in existing)
     comment = sf.sql_string(sf.external_comment(workload=WORKLOAD, csid=EP.csid, job="JOB03_CALC_AMB"))
     cur.execute(f"CREATE WAREHOUSE IF NOT EXISTS {WAREHOUSE} WAREHOUSE_SIZE='XSMALL' "
                 f"AUTO_SUSPEND=60 AUTO_RESUME=TRUE INITIALLY_SUSPENDED=TRUE COMMENT={comment}")
-    cur.execute(f"ALTER WAREHOUSE {WAREHOUSE} SET RESOURCE_MONITOR = {MONITOR}")
+    rows = show_rows(cur, f"SHOW WAREHOUSES LIKE '{WAREHOUSE}'")
+    rows = [row for row in rows if row["name"].upper() == WAREHOUSE]
+    if before != monitor_snapshot(cur):
+        raise RuntimeError("Resource monitor changed during provisioning")
+    if not existed or len(rows) != 1 or str(rows[0]["resource_monitor"]).upper() != MONITOR:
+        raise RuntimeError(
+            "Warehouse requires resource monitor assignment by the control connection. "
+            f"Ask the control connection to run: ALTER WAREHOUSE {WAREHOUSE} "
+            f"SET RESOURCE_MONITOR = {MONITOR}; No compute was run.")
+    warehouse = rows[0]
+    if str(warehouse["size"]).upper() != "X-SMALL" or warehouse["auto_suspend"] != 60:
+        raise RuntimeError("Existing warehouse must have size X-Small and auto_suspend 60; no compute was run")
     tag = sf.sql_string(sf.devin_csid_value(sf.workload_csids(WORKLOAD)))
     cur.execute(f"ALTER WAREHOUSE {WAREHOUSE} SET TAG {sf.TAG_FQN} = {tag}")
     cur.execute(f"CREATE DATABASE IF NOT EXISTS {args.database} COMMENT={comment}")
@@ -188,7 +201,7 @@ def provision(cur, args):
     after = monitor_snapshot(cur)
     if before != after:
         raise RuntimeError("Resource monitor changed during provisioning")
-    warehouse = verify_warehouse(cur, suspended=True)
+    warehouse = verify_warehouse(cur)
     write_json(args.evidence_dir / "provision.json",
                {"monitor_before": before, "monitor_after": after, "warehouse": warehouse})
 
