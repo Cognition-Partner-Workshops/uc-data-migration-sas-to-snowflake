@@ -48,3 +48,16 @@ def test_missing_fields_are_distinct_from_null():
         {"path": "/value", "legacy": None, "snowflake": None,
          "legacy_missing": False, "snowflake_missing": True}]
     assert differences([], [None])[0]["legacy_missing"] is True
+
+
+def test_cli_creates_output_parent_directories(monkeypatch, tmp_path):
+    import sys
+
+    import compare_monthly_balance as comparison
+
+    output = tmp_path / "new" / "nested" / "comparison.json"
+    monkeypatch.setattr(sys, "argv", ["compare", "legacy.html", "snowflake.html",
+                                     "--out", str(output)])
+    monkeypatch.setattr(comparison, "compare", lambda *args: {"rows": []})
+    comparison.main()
+    assert json.loads(output.read_text()) == {"rows": []}

@@ -88,6 +88,7 @@ def main():
     args = parser.parse_args()
     result = compare(args.legacy, args.snowflake)
     output = outside_repo(args.out)
+    output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
 
