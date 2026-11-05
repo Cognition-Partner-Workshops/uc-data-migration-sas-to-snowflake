@@ -1,0 +1,6 @@
+# Preserve the vendored attribution source unchanged apart from registration.
+[lint]
+extend-select = ["I", "UP", "RUF", "ISC"]
+
+[lint.per-file-ignores]
+"sf_attribution.py" = ["UP017", "ISC004"]
