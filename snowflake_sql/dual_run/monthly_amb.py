@@ -6,6 +6,9 @@ import hashlib
 import json
 import os
 import re
+import subprocess
+import sys
+from collections import Counter
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -15,6 +18,13 @@ import snowflake.connector
 from cryptography.hazmat.primitives import serialization
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "snowflake_sql"))
+from attribution import sf_attribution as sf
+
+WORKLOAD = "mig_sas"
+EP = sf.ENDPOINTS["cs_mig_sas_monthly_balance"]
+WAREHOUSE = f"{sf.warehouse_name(WORKLOAD)}_MONTHLY_BALANCE_{sf.RUN_TOKEN}"
+MONITOR = sf.resource_monitor_name(WORKLOAD)
 KEYS = ["CUSTOMER_ID", "ACCOUNT_ID", "REPORTING_MONTH_YYYYMM"]
 TABLES = {
     "CUST_ACCOUNTS": [
@@ -72,16 +82,115 @@ def read_sas(table: str):
     return rows, hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def connect(args):
-    key = serialization.load_pem_private_key(os.environ["SFNFR_PRIVATE_KEY"].encode(), password=None)
-    return snowflake.connector.connect(
-        account=os.environ["SFNFR_ACCOUNT"], user=os.environ["SFNFR_USER"],
-        role=os.environ["SFNFR_ROLE"], authenticator="SNOWFLAKE_JWT",
+def git(*args):
+    return subprocess.run(["git", "-C", str(ROOT), *args], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def pushed_head():
+    if git("status", "--porcelain"):
+        raise RuntimeError("Refusing connection: HEAD must be clean")
+    commit = git("rev-parse", "HEAD")
+    if not git("branch", "-r", "--contains", commit):
+        raise RuntimeError("Refusing connection: HEAD must be pushed to a remote-tracking branch")
+    return commit
+
+
+def connection_arguments(args, commit, run_id):
+    params = sf.connection_params(
+        EP, phase="dev", account=os.environ["SNOWFLAKE_EXT_ACCOUNT"],
+        private_key_file="in-memory", commit=commit, run_id=run_id,
+        session_url=os.environ["DEVIN_SESSION_URL"], role="DEVIN_EXT_ROLE",
+        schema=args.target_schema,
+    )
+    params.pop("private_key_file")
+    key = serialization.load_pem_private_key(
+        os.environ["SNOWFLAKE_EXT_PRIVATE_KEY"].encode(), password=None)
+    params.update(
         private_key=key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8,
                                      serialization.NoEncryption()),
-        warehouse="WH_SAS_AMB", database=args.database, schema=args.target_schema,
-        paramstyle="qmark", session_parameters={"QUERY_TAG": "sas_monthly_amb_dual_run"},
+        user=os.environ["SNOWFLAKE_EXT_USER"], warehouse=None,
+        database=args.database, paramstyle="qmark",
     )
+    return params
+
+
+def connect(args):
+    commit = pushed_head()
+    run_id = sf.make_run_id(WORKLOAD, "dev")
+    print(f"run_id={run_id}; application={sf.APPLICATION} (unregistered)")
+    return snowflake.connector.connect(**connection_arguments(args, commit, run_id))
+
+
+class RecordedCursor:
+    def __init__(self, cursor, evidence_dir):
+        self.cursor = cursor
+        self.path = evidence_dir / "queries.json"
+        self.queries = json.loads(self.path.read_text()) if self.path.exists() else []
+        self.action = ""
+
+    def execute(self, sql, params=None):
+        try:
+            self.cursor.execute(sql, params) if params is not None else self.cursor.execute(sql)
+        finally:
+            self.queries.append({"label": f"{self.action}: {sql.splitlines()[0]}",
+                                 "query_id": self.cursor.sfqid})
+            write_json(self.path, self.queries)
+        return self
+
+    def fetchone(self):
+        return self.cursor.fetchone()
+
+    def fetchall(self):
+        return self.cursor.fetchall()
+
+    @property
+    def sfqid(self):
+        return self.cursor.sfqid
+
+
+def show_rows(cur, sql):
+    cur.execute(sql)
+    return [dict(zip([c[0].lower() for c in cur.cursor.description], row))
+            for row in cur.fetchall()]
+
+
+def monitor_snapshot(cur):
+    rows = show_rows(cur, f"SHOW RESOURCE MONITORS LIKE '{MONITOR}'")
+    rows = [r for r in rows if r["name"].upper() == MONITOR]
+    if len(rows) != 1 or Decimal(str(rows[0]["credit_quota"])) != 10:
+        raise RuntimeError("Required resource monitor missing or quota is not 10")
+    row = rows[0]
+    fields = ("credit_quota", "notify_at", "suspend_at", "suspend_immediately_at", "end_time")
+    return {field: row[field] for field in fields}
+
+
+def verify_warehouse(cur, suspended=False):
+    rows = show_rows(cur, f"SHOW WAREHOUSES LIKE '{WAREHOUSE}'")
+    rows = [r for r in rows if r["name"].upper() == WAREHOUSE]
+    if (len(rows) != 1 or str(rows[0]["resource_monitor"]).upper() != MONITOR
+            or (suspended and rows[0]["state"].upper() != "SUSPENDED")):
+        raise RuntimeError("Warehouse missing, monitor not attached, or warehouse not suspended")
+    return rows[0]
+
+
+def provision(cur, args):
+    before = monitor_snapshot(cur)
+    comment = sf.sql_string(sf.external_comment(workload=WORKLOAD, csid=EP.csid, job="JOB03_CALC_AMB"))
+    cur.execute(f"CREATE WAREHOUSE IF NOT EXISTS {WAREHOUSE} WAREHOUSE_SIZE='XSMALL' "
+                f"AUTO_SUSPEND=60 AUTO_RESUME=TRUE INITIALLY_SUSPENDED=TRUE COMMENT={comment}")
+    cur.execute(f"ALTER WAREHOUSE {WAREHOUSE} SET RESOURCE_MONITOR = {MONITOR}")
+    tag = sf.sql_string(sf.devin_csid_value(sf.workload_csids(WORKLOAD)))
+    cur.execute(f"ALTER WAREHOUSE {WAREHOUSE} SET TAG {sf.TAG_FQN} = {tag}")
+    cur.execute(f"CREATE DATABASE IF NOT EXISTS {args.database} COMMENT={comment}")
+    for namespace in namespaces(args):
+        cur.execute(f"CREATE SCHEMA IF NOT EXISTS {namespace} COMMENT={comment}")
+    after = monitor_snapshot(cur)
+    if before != after:
+        raise RuntimeError("Resource monitor changed during provisioning")
+    warehouse = verify_warehouse(cur, suspended=True)
+    write_json(args.evidence_dir / "provision.json",
+               {"monitor_before": before, "monitor_after": after, "warehouse": warehouse})
 
 
 def namespaces(args):
@@ -96,21 +205,108 @@ def write_json(path: Path, value):
 
 def load(cur, args):
     source, legacy, _ = namespaces(args)
-    manifest = {}
+    manifest = input_manifest(args)
+    path = args.evidence_dir / "manifest.json"
+    if path.exists():
+        raise RuntimeError("Frozen manifest already exists; choose a new evidence directory")
     for table, schema in TABLES.items():
         rows, digest = read_sas(table)
+        if digest != manifest["files"][table]["sha256"]:
+            raise RuntimeError(f"Input changed during load: {table}")
         fqn = f"{legacy if table == 'MONTHLY_AMB' else source}.{table}"
         columns = ", ".join(f'"{name}" {sql_type}' for name, sql_type in schema)
         cur.execute(f"CREATE OR REPLACE TABLE {fqn} ({columns})")
         placeholders = ", ".join("?" for _ in schema)
         for offset in range(0, len(rows), 5000):
-            cur.executemany(f"INSERT INTO {fqn} VALUES ({placeholders})", rows[offset:offset + 5000])
+            batch = rows[offset:offset + 5000]
+            values = ", ".join(f"({placeholders})" for _ in batch)
+            cur.execute(f"INSERT INTO {fqn} VALUES {values}",
+                        tuple(value for row in batch for value in row))
         count = cur.execute(f"SELECT COUNT(*) FROM {fqn}").fetchone()[0]
         if count != len(rows):
             raise RuntimeError(f"Load row count mismatch: {fqn}")
-        manifest[table] = {"table": fqn, "rows": count, "sas_sha256": digest}
-    write_json(args.evidence_dir / "load.json", manifest)
-    print(json.dumps(manifest, indent=2))
+        snapshot = table_snapshot(cur, fqn)
+        if snapshot["sha256"] != canonical_sha256(rows):
+            raise RuntimeError(f"Loaded table differs from source: {fqn}")
+        manifest["files"][table].update(loaded_rows=count, loaded_table=snapshot)
+    write_json(path, manifest)
+    print(json.dumps(manifest, indent=2, default=str))
+
+
+def canonical_line(row, rounded=False):
+    values = []
+    for value in row:
+        if isinstance(value, float):
+            values.append(float(repr(round(value, 6) if rounded else value)))
+        elif isinstance(value, date):
+            values.append(value.isoformat())
+        elif isinstance(value, Decimal):
+            values.append(int(value) if value == value.to_integral_value() else str(value))
+        else:
+            values.append(value)
+    return json.dumps(values, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
+def canonical_sha256(rows):
+    return hashlib.sha256("\n".join(sorted(canonical_line(row) for row in rows)).encode()).hexdigest()
+
+
+def multiset_diff(left, right, rounded=False):
+    a = Counter(canonical_line(row, rounded) for row in left)
+    b = Counter(canonical_line(row, rounded) for row in right)
+    return [[{"row": json.loads(row), "multiplicity": count}
+             for row, count in sorted(diff.items())] for diff in (a - b, b - a)]
+
+
+def table_snapshot(cur, fqn):
+    database, schema, table = fqn.split(".")
+    columns = cur.execute(
+        f"SELECT COLUMN_NAME, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE, "
+        f"CHARACTER_MAXIMUM_LENGTH FROM {database}.INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+        (schema, table)).fetchall()
+    if not columns:
+        raise RuntimeError(f"No columns found: {fqn}")
+    names = ", ".join(f'"{column[0]}"' for column in columns)
+    rows = cur.execute(f"SELECT {names} FROM {fqn}").fetchall()
+    rows.sort(key=canonical_line)
+    return {"columns": [list(c) for c in columns], "rows": [list(row) for row in rows],
+            "row_count": len(rows), "sha256": canonical_sha256(rows)}
+
+
+def input_manifest(args):
+    source, legacy, _ = namespaces(args)
+    files = {}
+    for table, columns in TABLES.items():
+        path = ROOT / "sample_data" / f"{table}.sas7bdat"
+        files[table] = {
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "byte_size": path.stat().st_size,
+            "git_index": git("ls-files", "-s", str(path.relative_to(ROOT))),
+            "target_fqn": f"{legacy if table == 'MONTHLY_AMB' else source}.{table}",
+            "columns": [list(c) for c in columns],
+        }
+        if table == "MONTHLY_AMB":
+            files[table]["provenance"] = "retained legacy SAS output; SAS engine unavailable, not re-executed"
+    return {"source_commit": git("rev-parse", "HEAD"), "files": files,
+            "reporting_month": args.reporting_month, "run_date": args.run_date.isoformat()}
+
+
+def verify_manifest(cur, args):
+    saved = json.loads((args.evidence_dir / "manifest.json").read_text())
+    current = input_manifest(args)
+    for key in ("source_commit", "reporting_month", "run_date"):
+        if saved[key] != current[key]:
+            raise RuntimeError(f"Frozen manifest changed: {key}")
+    for table, info in current["files"].items():
+        original = saved["files"][table]
+        if any(original[key] != value for key, value in info.items()):
+            raise RuntimeError(f"Frozen input changed: {table}")
+        snapshot = table_snapshot(cur, info["target_fqn"])
+        # JSON serialization makes persisted dates comparable to fetched dates.
+        if json.dumps(snapshot, default=str, sort_keys=True) != json.dumps(
+                original["loaded_table"], default=str, sort_keys=True):
+            raise RuntimeError(f"Frozen loaded table changed: {table}")
 
 
 def run_job(cur, args):
@@ -131,8 +327,8 @@ def canonical_expression() -> str:
         elif sql_type.startswith("NUMBER") or sql_type == "FLOAT":
             value = f"TO_VARCHAR(ROUND({column}::NUMBER(38,6), 6))"
         else:
-            value = f"TRIM({column})"
-        parts.append(f"COALESCE({value}, '\\\\N')")
+            value = column
+        parts.append(f"IFF({column} IS NULL, 'N', 'V' || LENGTH({value}) || ':' || {value})")
     return " || '|' || ".join(parts)
 
 
@@ -163,6 +359,9 @@ def matches_batch(column_profile, reporting_month: int, run_date: date) -> bool:
 
 def compare(cur, args):
     source, legacy, target = namespaces(args)
+    snapshots = [table_snapshot(cur, f"{namespace}.MONTHLY_AMB") for namespace in (legacy, target)]
+    legacy_only, new_only = multiset_diff(snapshots[0]["rows"], snapshots[1]["rows"])
+    rounded_diff = multiset_diff(snapshots[0]["rows"], snapshots[1]["rows"], rounded=True)
     expression, keys, queries = canonical_expression(), ", ".join(KEYS), []
 
     def query(sql):
@@ -197,6 +396,11 @@ def compare(cur, args):
     rows_in = sum(query(f"SELECT COUNT(*) FROM {source}.{table}").fetchone()[0]
                   for table in ("CUST_ACCOUNTS", "DAILY_BALANCE"))
     result = {
+        "strict_legacy_only": legacy_only, "strict_new_only": new_only,
+        "canonical_sha256": [s["sha256"] for s in snapshots],
+        "ordered_columns_types": [s["columns"] for s in snapshots],
+        "float_6dp_policy": "Python round(value, 6) on FLOAT only; diagnostic, never strict",
+        "float_6dp_difference_counts": [sum(r["multiplicity"] for r in side) for side in rounded_diff],
         "table": "MONTHLY_AMB", "legacy_fqn": f"{legacy}.MONTHLY_AMB",
         "new_fqn": f"{target}.MONTHLY_AMB", "key_columns": [key.lower() for key in KEYS],
         "rows_in": rows_in, "legacy_rows": checksums[0][0], "new_rows": checksums[1][0],
@@ -209,7 +413,8 @@ def compare(cur, args):
         "mismatch_samples": differences[:20], "reporting_month": args.reporting_month,
         "run_date": args.run_date.isoformat(),
     }
-    passed = (checksums[0] == checksums[1] and not differences and not any(multiset)
+    passed = (not legacy_only and not new_only and snapshots[0]["columns"] == snapshots[1]["columns"]
+              and checksums[0] == checksums[1] and not differences and not any(multiset)
               and not any(duplicates) and profiles[0] == profiles[1] and batch_matches)
     result["status"] = "PASS" if passed else "FAIL"
     write_json(args.evidence_dir / "parity.json", result)
@@ -229,26 +434,43 @@ def compare(cur, args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["load", "run", "compare", "all"])
-    parser.add_argument("--database", type=identifier, default="SFNFR_20261104")
-    parser.add_argument("--source-schema", type=identifier, default="SAS_AMB_SRC_SFNFR_20261104")
-    parser.add_argument("--legacy-schema", type=identifier, default="SAS_AMB_LEGACY_SFNFR_20261104")
-    parser.add_argument("--target-schema", type=identifier, default="SAS_AMB_SF_SFNFR_20261104")
+    parser.add_argument("action", choices=["provision", "manifest", "load", "run", "compare", "all"])
+    parser.add_argument("--database", type=identifier, default=sf.database_name(WORKLOAD))
+    parser.add_argument("--source-schema", type=identifier, default=f"MONTHLY_AMB_SRC_{sf.RUN_TOKEN}")
+    parser.add_argument("--legacy-schema", type=identifier, default=f"MONTHLY_AMB_LEGACY_{sf.RUN_TOKEN}")
+    parser.add_argument("--target-schema", type=identifier, default=f"MONTHLY_AMB_SF_{sf.RUN_TOKEN}")
     parser.add_argument("--reporting-month", type=int, default=202507)
     parser.add_argument("--run-date", type=date.fromisoformat, default=date(2025, 8, 1))
-    parser.add_argument("--scenario-dir", type=Path,
-                        default=ROOT / "sample_data" / "Scenario_SFNFR_20261104")
-    parser.add_argument("--evidence-dir", type=Path, default=ROOT / "evidence" / "MONTHLY_AMB")
+    parser.add_argument("--scenario-dir", type=Path, required=True)
+    parser.add_argument("--evidence-dir", type=Path, required=True)
     args = parser.parse_args()
     date.fromisoformat(f"{args.reporting_month // 100:04d}-{args.reporting_month % 100:02d}-01")
     if len(set(namespaces(args))) != 3:
         parser.error("SRC, LEGACY and SF must be distinct namespaces")
-    with connect(args) as connection, connection.cursor() as cur:
+    for path in (args.evidence_dir, args.scenario_dir):
+        if path.resolve().is_relative_to(ROOT):
+            parser.error("Output directories must be outside the repository")
+    with connect(args) as connection, connection.cursor() as raw:
+        cur = RecordedCursor(raw, args.evidence_dir)
+        cur.action = args.action
+        if args.action == "provision":
+            provision(cur, args)
+            return
+        verify_warehouse(cur)
+        cur.execute(f"USE WAREHOUSE {WAREHOUSE}")
         if args.action in ("load", "all"):
+            cur.action = "load"
             load(cur, args)
+        if args.action in ("manifest", "run", "compare", "all"):
+            cur.action = "manifest"
+            verify_manifest(cur, args)
         if args.action in ("run", "all"):
+            cur.action = "run"
             run_job(cur, args)
         if args.action in ("compare", "all"):
+            cur.action = "manifest"
+            verify_manifest(cur, args)
+            cur.action = "compare"
             compare(cur, args)
 
 

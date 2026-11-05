@@ -1,18 +1,26 @@
 """Focused loader and set-based SQL regression tests; no credentials required."""
 
 import argparse
+import json
 from datetime import date
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from monthly_amb import (
     ROOT,
     TABLES,
     canonical_expression,
+    canonical_line,
+    canonical_sha256,
+    connection_arguments,
     identifier,
     matches_batch,
+    multiset_diff,
+    pushed_head,
     read_sas,
     sas_value,
 )
@@ -88,7 +96,7 @@ def test_entire_frozen_window_matches_without_legacy_output_in_computation():
     frames = {}
     for name in ["CUST_ACCOUNTS", "DAILY_BALANCE"]:
         rows, _ = read_sas(name)
-        frames[name] = pd.DataFrame(rows, columns=[c.lower() for c, _ in TABLES[name]])
+        frames[name] = pd.DataFrame(rows, columns=pd.Index([c.lower() for c, _ in TABLES[name]]))
     with duckdb.connect() as connection:
         connection.register("accounts", frames["CUST_ACCOUNTS"])
         connection.register("balances", frames["DAILY_BALANCE"])
@@ -102,10 +110,177 @@ def test_canonical_form_uses_all_columns_in_legacy_order():
     positions = [expression.index(column) for column, _ in TABLES["MONTHLY_AMB"]]
     assert positions == sorted(positions)
     assert expression.count(" || '|' || ") == 4
-    assert expression.count("NUMBER(38,6)") == 3
-    assert "TRIM(ACCOUNT_ID)" in expression
+    assert expression.count("NUMBER(38,6)") == 6
+    assert "TRIM" not in expression
     assert "TO_CHAR(DATE_COMPUTED, 'YYYY-MM-DD')" in expression
-    assert expression.count("'\\\\N'") == 5
+    assert expression.count("IS NULL, 'N', 'V'") == 5
+
+
+def test_canonical_null_empty_literal_and_whitespace_are_distinct():
+    assert len({canonical_line([v]) for v in (None, "", "\\N", " a ", "a")}) == 5
+    assert canonical_line([None]) == "[null]"
+    assert canonical_line([7]) == "[7]"
+    assert canonical_sha256([]) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+
+def test_multiset_duplicates_and_order():
+    assert multiset_diff([(1,), (1,), (2,)], [(2,), (1,)]) == [
+        [{"row": [1], "multiplicity": 1}], []]
+    assert canonical_sha256([(1,), (2,)]) == canonical_sha256([(2,), (1,)])
+    assert canonical_sha256([(1,), (1,)]) != canonical_sha256([(1,)])
+    assert multiset_diff([], []) == [[], []]
+
+
+def test_float_roundtrip_is_strict_and_rounding_is_separate():
+    a, b = 1.0000000000000002, 1.0
+    assert canonical_line([a]) == "[" + repr(a) + "]"
+    assert json.loads(canonical_line([a])) == [a]
+    assert multiset_diff([(a,)], [(b,)]) != [[], []]
+    assert multiset_diff([(a,)], [(b,)], rounded=True) == [[], []]
+
+
+def test_connection_has_in_memory_key_and_ordered_attribution(monkeypatch):
+    import monthly_amb as amb
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                            serialization.NoEncryption()).decode()
+    session = "https://example.com/sessions/" + "a" * 32
+    for name, value in {"SNOWFLAKE_EXT_ACCOUNT": "dummy", "SNOWFLAKE_EXT_USER": "dummy_user",
+                        "SNOWFLAKE_EXT_PRIVATE_KEY": pem, "DEVIN_SESSION_URL": session}.items():
+        monkeypatch.setenv(name, value)
+    args = argparse.Namespace(database="DB", target_schema="TARGET")
+    params = connection_arguments(args, "a" * 40, amb.sf.make_run_id("mig_sas", "dev"))
+    assert "private_key_file" not in params
+    assert params["user"] == "dummy_user"
+    assert isinstance(params["private_key"], bytes)
+    serialization.load_der_private_key(params["private_key"], password=None)
+    assert params["application"] == "Devin_Demo"
+    assert params["warehouse"] is None
+    tag = json.loads(params["session_parameters"]["QUERY_TAG"])
+    assert list(tag) == ["csid", "workload", "phase", "commit", "run_id", "session_url"]
+    assert tag["session_url"] == session
+    monkeypatch.delenv("DEVIN_SESSION_URL")
+    with pytest.raises(KeyError):
+        connection_arguments(args, "a" * 40, amb.sf.make_run_id("mig_sas", "dev"))
+
+
+@pytest.mark.parametrize("dirty,remote", [(" M file", "origin/x"), ("", "")])
+def test_connection_refuses_dirty_or_unpushed_head(monkeypatch, dirty, remote):
+    import monthly_amb as amb
+    monkeypatch.setattr(amb, "git", lambda *args: dirty if args[0] == "status" else
+                        ("a" * 40 if args[0] == "rev-parse" else remote))
+    with pytest.raises(RuntimeError):
+        pushed_head()
+
+
+def test_provision_only_ddl_and_monitor_validation(monkeypatch, tmp_path):
+    import monthly_amb as amb
+    statements = []
+    cur = argparse.Namespace(execute=statements.append)
+    args = argparse.Namespace(database="DB", source_schema="SRC", legacy_schema="LEGACY",
+                              target_schema="TARGET", evidence_dir=tmp_path)
+    calls = []
+    monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: calls.append("monitor") or {"quota": 10})
+    monkeypatch.setattr(amb, "verify_warehouse",
+                        lambda cur, suspended=False: calls.append(suspended) or {"state": "SUSPENDED"})
+    amb.provision(cur, args)
+    assert calls == ["monitor", "monitor", True]
+    assert all(sql.startswith(("CREATE ", "ALTER ")) for sql in statements)
+    assert len(statements) == 7
+    assert "INITIALLY_SUSPENDED=TRUE" in statements[0]
+    assert "RESOURCE_MONITOR" in statements[1]
+    assert "SET TAG" in statements[2]
+    assert not any(sql.startswith("ALTER DATABASE") for sql in statements)
+    snapshots = iter([{"quota": 10}, {"quota": 11}])
+    monkeypatch.setattr(amb, "monitor_snapshot", lambda cur: next(snapshots))
+    with pytest.raises(RuntimeError, match="changed"):
+        amb.provision(cur, args)
+
+
+@pytest.mark.parametrize("rows", [[], [{"name": "OTHER", "credit_quota": 10}],
+                                   [{"name": "RM", "credit_quota": 11}]])
+def test_missing_or_wrong_monitor_fails(monkeypatch, rows):
+    import monthly_amb as amb
+    monkeypatch.setattr(amb, "MONITOR", "RM")
+    monkeypatch.setattr(amb, "show_rows", lambda cur, sql: rows)
+    with pytest.raises(RuntimeError):
+        amb.monitor_snapshot(None)
+
+
+def test_frozen_manifest_verifies_bytes_metadata_and_loaded_hash(monkeypatch, tmp_path):
+    import monthly_amb as amb
+    args = argparse.Namespace(database="DB", source_schema="SRC", legacy_schema="LEGACY",
+                              target_schema="TARGET", evidence_dir=tmp_path,
+                              reporting_month=202507, run_date=date(2025, 8, 1))
+    manifest = amb.input_manifest(args)
+    assert len(manifest["source_commit"]) == 40
+    assert manifest["files"]["MONTHLY_AMB"]["provenance"].startswith("retained legacy SAS output")
+    snapshot = {"columns": [["A", "FLOAT"]], "rows": [[1.0]], "sha256": "frozen", "row_count": 1}
+    for info in manifest["files"].values():
+        assert info["byte_size"] > 0 and len(info["sha256"]) == 64
+        assert info["git_index"].startswith("100644 ")
+        info.update(loaded_table=snapshot, loaded_rows=1)
+    amb.write_json(tmp_path / "manifest.json", manifest)
+    monkeypatch.setattr(amb, "table_snapshot", lambda cur, fqn: snapshot)
+    amb.verify_manifest(None, args)
+    monkeypatch.setattr(amb, "table_snapshot", lambda cur, fqn: {**snapshot, "sha256": "changed"})
+    with pytest.raises(RuntimeError, match="loaded table changed"):
+        amb.verify_manifest(None, args)
+    manifest["files"]["DAILY_BALANCE"]["sha256"] = "changed"
+    amb.write_json(tmp_path / "manifest.json", manifest)
+    monkeypatch.setattr(amb, "table_snapshot", lambda cur, fqn: snapshot)
+    with pytest.raises(RuntimeError, match="input changed"):
+        amb.verify_manifest(None, args)
+
+
+@pytest.mark.parametrize("rows", [[], [(date(2025, 8, 1),)]])
+def test_load_freezes_manifest_and_refuses_overwrite(monkeypatch, tmp_path, rows):
+    import monthly_amb as amb
+    args = argparse.Namespace(database="DB", source_schema="SRC", legacy_schema="LEGACY",
+                              target_schema="TARGET", evidence_dir=tmp_path)
+    monkeypatch.setattr(amb, "TABLES", {"MONTHLY_AMB": [("DATE_COMPUTED", "DATE")]})
+    monkeypatch.setattr(amb, "input_manifest", lambda args: {"files": {"MONTHLY_AMB": {"sha256": "abc"}}})
+    monkeypatch.setattr(amb, "read_sas", lambda table: (rows, "abc"))
+    monkeypatch.setattr(amb, "table_snapshot", lambda cur, table: {
+        "sha256": amb.canonical_sha256(rows), "rows": rows})
+    statements = []
+
+    class Cursor:
+        def execute(self, sql, params=None):
+            statements.append((sql, params))
+            return self
+
+        def fetchone(self):
+            return (len(rows),)
+
+    amb.load(Cursor(), args)
+    saved = json.loads((tmp_path / "manifest.json").read_text())
+    assert saved["files"]["MONTHLY_AMB"]["loaded_rows"] == len(rows)
+    assert len([s for s, _ in statements if s.startswith("INSERT")]) == bool(rows)
+    with pytest.raises(RuntimeError, match="already exists"):
+        amb.load(Cursor(), args)
+
+
+def test_query_ids_append_across_invocations_even_on_error(tmp_path):
+    import monthly_amb as amb
+
+    class Cursor:
+        sfqid = None
+
+        def execute(self, sql, params=None):
+            self.sfqid = "id-" + sql
+            if sql == "bad":
+                raise ValueError("bad")
+
+    first = amb.RecordedCursor(Cursor(), tmp_path)
+    first.action = "load"
+    first.execute("ok")
+    second = amb.RecordedCursor(Cursor(), tmp_path)
+    second.action = "run"
+    with pytest.raises(ValueError):
+        second.execute("bad")
+    assert json.loads((tmp_path / "queries.json").read_text()) == [
+        {"label": "load: ok", "query_id": "id-ok"}, {"label": "run: bad", "query_id": "id-bad"}]
 
 
 def test_scenario_export_is_not_used_by_sql():
