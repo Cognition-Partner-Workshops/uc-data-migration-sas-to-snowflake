@@ -55,7 +55,7 @@ AS
 
 -- JOB03: Calculate Monthly Average Balance
 CREATE OR REPLACE TASK FINANCE_DB.PUBLIC.TASK_JOB03_CALC_AMB
-    WAREHOUSE = WH_SAS_AMB
+    WAREHOUSE = WH_BATCH_ETL
     AFTER FINANCE_DB.PUBLIC.TASK_JOB02_DAILY_TRANSACTIONS
     COMMENT = 'Calculate monthly AMB — no is_active filter (matches SAS source)'
 AS
