@@ -1,38 +1,42 @@
-/*=====================================================================
-  JOB03_CALC_AMB.sql — Monthly Average Balance Calculation
+-- Set AMB_PROCEDURE to <database>.<target_schema>.SP_JOB03_CALC_AMB before deployment.
+-- Set-based SQL; the procedure supplies replayable batch parameters to the Task.
+CREATE OR REPLACE PROCEDURE IDENTIFIER($AMB_PROCEDURE)(
+    SOURCE_NAMESPACE VARCHAR,
+    TARGET_NAMESPACE VARCHAR,
+    REPORTING_MONTH NUMBER,
+    RUN_DATE DATE
+)
+RETURNS VARCHAR
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    accounts_table VARCHAR := SOURCE_NAMESPACE || '.CUST_ACCOUNTS';
+    balances_table VARCHAR := SOURCE_NAMESPACE || '.DAILY_BALANCE';
+    output_table VARCHAR := TARGET_NAMESPACE || '.MONTHLY_AMB';
+    month_start DATE := TO_DATE(TO_VARCHAR(REPORTING_MONTH), 'YYYYMM');
+    invalid_parameters EXCEPTION (-20001, 'Reporting month and run date are required');
+BEGIN
+    IF (REPORTING_MONTH IS NULL OR RUN_DATE IS NULL) THEN
+        RAISE invalid_parameters;
+    END IF;
 
-  SAS equivalent: Inline step in the batch that computes MONTHLY_AMB
-  from WORK.CUST_ACCOUNTS and WORK.DAILY_BALANCE.
+    CREATE OR REPLACE TABLE IDENTIFIER(:output_table) AS
+    SELECT
+        c.CUSTOMER_ID,
+        c.ACCOUNT_ID,
+        :REPORTING_MONTH::NUMBER(6,0) AS REPORTING_MONTH_YYYYMM,
+        ROUND(AVG(d.END_OF_DAY_BALANCE), 2) AS AVERAGE_MONTHLY_BALANCE,
+        :RUN_DATE AS DATE_COMPUTED
+    FROM IDENTIFIER(:accounts_table) c
+    INNER JOIN IDENTIFIER(:balances_table) d
+        ON c.CUSTOMER_ID = d.CUSTOMER_ID
+       AND c.ACCOUNT_ID = d.ACCOUNT_ID
+    -- The frozen legacy run includes July only and ALL account statuses.
+    WHERE d.MONTH = :month_start
+    GROUP BY c.CUSTOMER_ID, c.ACCOUNT_ID;
 
-  Inputs:  STAGING.CUST_ACCOUNTS_DAILY, STAGING.DAILY_BALANCE
-  Outputs: STAGING.MONTHLY_AMB
-
-  *** IMPORTANT — SOURCE-PARITY NOTE ***
-  The SAS logic computes AMB for ALL accounts regardless of is_active
-  status. Do NOT add a WHERE c.is_active = 'ACTIVE' filter here — that
-  would silently exclude inactive accounts and cause a Sum Amount
-  divergence ($773K gap on Scenario1). If the business wants to exclude
-  inactive accounts, that is a separate remediation decision, not a
-  migration side effect.
-=====================================================================*/
-
-CREATE OR REPLACE TABLE STAGING.MONTHLY_AMB AS
-SELECT
-    c.CUSTOMER_ID,
-    c.ACCOUNT_ID,
-    d.REPORTING_MONTH_YYYYMM,
-    AVG(d.END_OF_DAY_BALANCE)  AS AVERAGE_MONTHLY_BALANCE,
-    CURRENT_DATE()             AS DATE_COMPUTED
-FROM STAGING.CUST_ACCOUNTS_DAILY c
-INNER JOIN STAGING.DAILY_BALANCE d
-    ON c.CUSTOMER_ID = d.CUSTOMER_ID
-   AND c.ACCOUNT_ID  = d.ACCOUNT_ID
--- NOTE: No is_active filter — matches SAS source faithfully.
-GROUP BY
-    c.CUSTOMER_ID,
-    c.ACCOUNT_ID,
-    d.REPORTING_MONTH_YYYYMM
-ORDER BY
-    c.CUSTOMER_ID,
-    c.ACCOUNT_ID,
-    d.REPORTING_MONTH_YYYYMM;
+    RETURN output_table;
+END;
+$$;
