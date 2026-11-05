@@ -203,7 +203,8 @@ fromHash();
 
 
 def _json_script(element_id: str, value) -> str:
-    payload = json.dumps(value, sort_keys=True).replace("</", r"<\/")
+    payload = (json.dumps(value, sort_keys=True).replace("<", r"\u003c")
+               .replace(">", r"\u003e").replace("&", r"\u0026"))
     return f'<script type="application/json" id="{element_id}">{payload}</script>'
 
 

@@ -215,8 +215,22 @@ def test_render_escapes_data_and_includes_month_and_source_labels() -> None:
     json_payload = legacy.split(
         '<script type="application/json" id="details">', maxsplit=1
     )[1].split("</script>", maxsplit=1)[0]
-    assert r"<\/script>" in json_payload
+    assert r"\u003c/script\u003e" in json_payload
     assert "</script>" not in json_payload
+
+
+def test_json_script_escapes_mixed_case_closing_tags():
+    import json
+
+    from monthly_balance_summary import _json_script
+
+    value = {"account_type": '</ScRiPt><script>alert("x")</script>&'}
+    script = _json_script("details", value)
+    payload = script.split(">", 1)[1].rsplit("</script>", 1)[0]
+    assert "<" not in payload
+    assert ">" not in payload
+    assert "&" not in payload
+    assert json.loads(payload) == value
 
 
 class FakeCursor:
