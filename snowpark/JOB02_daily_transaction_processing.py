@@ -161,7 +161,8 @@ def daily_transaction_processing(
             ),
         )
         .when(
-            ~col("TRANSACTION_TYPE").isin(VALID_TXN_TYPES),
+            # SAS: missing NOT IN (...) is TRUE, so a NULL type is rejected too
+            col("TRANSACTION_TYPE").is_null() | ~col("TRANSACTION_TYPE").isin(VALID_TXN_TYPES),
             concat_ws(lit(" "), lit("Invalid transaction type:"), trim(col("TRANSACTION_TYPE"))),
         )
         .when(

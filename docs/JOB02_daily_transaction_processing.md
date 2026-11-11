@@ -38,9 +38,9 @@ SAS references are `Programs/Banking/daily_transaction_processing.sas:line`; tar
 | `missing(TRANSACTION_AMOUNT)` on numeric | 64 | `col.is_null()` | 154 |
 | `put(TRANSACTION_AMOUNT, dollar18.2)` in `catx` | 71-72 | `TRIM(TO_CHAR(amt, '$999,999,999,999,999.00'))` inside `CONCAT_WS(' ', …)` | 157-162 |
 | `put(TRANSACTION_DATE, date9.)` | 86-87 | `UPPER(TO_CHAR(date, 'DDMONYYYY'))` | 168-174 |
-| `TRANSACTION_TYPE not in (…)` | 75 | `~col.isin(VALID_TXN_TYPES)` | 164-167 |
+| `TRANSACTION_TYPE not in (…)` (missing value is NOT IN → rejected) | 75 | `col.is_null() \| ~col.isin(VALID_TXN_TYPES)` | 164-168 |
 | `TRANSACTION_DATE > "&txn_date"d` | 84 | `col("TRANSACTION_DATE") > lit(txnDt)` | 169 |
-| `drop REJECT_REASON` (only from TXN_VALIDATED) | 96 | `.drop("REJECT_REASON")` on the validated branch only | 179 |
+| `drop REJECT_REASON` (DATA-step DROP applies to both TXN_VALIDATED and TXN_REJECTED) | 96 | `.drop("REJECT_REASON")` on the validated branch; kept on `txnRejected` only for the `%nobs` count, never persisted | 180 |
 | PROC SQL `select t.*, a.… from TXN_VALIDATED t left join CUST_ACCOUNTS_DAILY a on t.ACCOUNT_ID = a.ACCOUNT_ID` | 105-128 | account key renamed to `A_ACCOUNT_ID`, `join(how="left")`, projection = `txnValidated.columns + [...]` (one `ACCOUNT_ID`, same column order as `t.*`) | 189-222 |
 | `a.CURRENT_BALANCE as PRE_TXN_BALANCE` | 115 | `col("CURRENT_BALANCE").alias("PRE_TXN_BALANCE")` | 196 |
 | `case when … end as POST_TXN_BALANCE format=dollar18.2` | 116-124 | `when/when/when/otherwise` (format is display-only; no equivalent) | 200-205 |
@@ -76,6 +76,8 @@ SAS references are `Programs/Banking/daily_transaction_processing.sas:line`; tar
 | Q10 | `std()` is the sample standard deviation, so an account with exactly one history transaction has a missing `STD_TXN_AMT` → `Z_SCORE` missing → cannot be `HIGH_AMOUNT`. `STDDEV` (sample) behaves identically. | SAS 165, 176-180 → target 257, 265 | reproduced |
 | Q11 | The `having ANOMALY_TYPE ne ''` filter means a feed with zero anomalies leaves `CURATED.TXN_ANOMALIES` untouched (and non-existent on a fresh library). | SAS 193, 213 → target 292, 306 | 46 rows appended |
 | Q12 | Character lengths are fixed by the loader (`TRANSACTION_ID $12`, `TRANSACTION_TYPE $4`, `DESCRIPTION $60`, …); longer CSV values are truncated by SAS `truncover`. The runner truncates identically before loading (`_sas_char`). | `Data/load_seed_data.sas` 110-121 → `run_local.py` 107-112 | no values exceed the lengths in this feed |
+| Q13 | Reject reasons built at SAS 53-93 are never observable: `REJECT_REASON` is dropped from every output dataset at line 96 and `WORK.TXN_REJECTED` is deleted at 240-242; only the `%nobs` count survives. The conversion keeps the column on `txnRejected` for the count and persists nothing. | SAS 53-96, 240-242 → target 178-183 | 61 rejected rows counted, none persisted |
+| Q14 | `%lock(CURATED.DAILY_TRANSACTIONS)` / `%lock(..., unlock)` at SAS 205/211 are positional calls to the keyword-only `Macro/lock.sas` (MEMBER=, ACTION=; `unlock` is not a valid ACTION), so they are dead code in production SAS as well as under the Docker shim. Snowflake DML is transactional; no equivalent emitted. | SAS 205, 211; `Macro/lock.sas` 86-124 | no data impact |
 
 ## 4. How the Snowflake-side CSVs were produced
 
