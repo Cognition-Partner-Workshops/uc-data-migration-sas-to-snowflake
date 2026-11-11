@@ -132,5 +132,1542 @@
       ],
       "transformation_display_name": "JOBX"
     }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_BANK.TXN_FEED_YYYYMMDD",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_BANK.TXN_FEED_YYYYMMDD",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.TXN_ANOMALIES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_BANK.TXN_FEED_YYYYMMDD",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RUNNING_BALANCES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.TXN_ANOMALIES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RUNNING_BALANCES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.TXN_ANOMALIES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowpark/JOB02_daily_transaction_processing.py",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "PROC APPEND FORCE onto the 10-column CURATED.DAILY_TRANSACTIONS drops the enrichment columns (Q1); Z-score baseline is the history BEFORE the append (Q3)"
+        }
+      ],
+      "transformation_display_name": "JOB02_DAILY_TRANSACTION_PROCESSING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_SCORES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_MIGRATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_BANK",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_BANK.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.RISK_SUMMARY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.BUREAU_SCORES",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_SCORES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.BUREAU_SCORES",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_MIGRATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.BUREAU_SCORES",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.RISK_SUMMARY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.PAYMENT_HISTORY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_SCORES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.PAYMENT_HISTORY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_MIGRATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.PAYMENT_HISTORY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.RISK_SUMMARY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.COLLATERAL",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_SCORES",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.COLLATERAL",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_MIGRATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "ORA_DW",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "ORA_DW.COLLATERAL",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.RISK_SUMMARY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB05_CREDIT_RISK_SCORING.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Blind INSERT (PROC APPEND semantics) into RISK_SCORES / RISK_MIGRATION; RISK_SUMMARY count columns literally named LGD, EAD, EXPECTED_LOSS (PROC MEANS n= quirk)"
+        }
+      ],
+      "transformation_display_name": "JOB05_CREDIT_RISK_SCORING"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_INS.POLICIES",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_INS.POLICY_VALUATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB06_POLICY_VALUATION.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "YTD_EARNED_PREMIUM is 0 for every policy at a January valuation date, so LOSS_RATIO / COMBINED_RATIO are NULL (Q1); PROC MEANS CLASS POLICY_TYPE drops blank class values"
+        }
+      ],
+      "transformation_display_name": "JOB06_POLICY_VALUATION"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_INS.CLAIMS",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_INS.POLICY_VALUATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB06_POLICY_VALUATION.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "YTD_EARNED_PREMIUM is 0 for every policy at a January valuation date, so LOSS_RATIO / COMBINED_RATIO are NULL (Q1); PROC MEANS CLASS POLICY_TYPE drops blank class values"
+        }
+      ],
+      "transformation_display_name": "JOB06_POLICY_VALUATION"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "RAW_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "RAW_INS.PREMIUMS",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_INS.POLICY_VALUATION",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB06_POLICY_VALUATION.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "YTD_EARNED_PREMIUM is 0 for every policy at a January valuation date, so LOSS_RATIO / COMBINED_RATIO are NULL (Q1); PROC MEANS CLASS POLICY_TYPE drops blank class values"
+        }
+      ],
+      "transformation_display_name": "JOB06_POLICY_VALUATION"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STG_INS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STG_INS.POLICY_VALUATION",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.LOSS_RATIO_SUMMARY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB06_POLICY_VALUATION.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "YTD_EARNED_PREMIUM is 0 for every policy at a January valuation date, so LOSS_RATIO / COMBINED_RATIO are NULL (Q1); PROC MEANS CLASS POLICY_TYPE drops blank class values"
+        }
+      ],
+      "transformation_display_name": "JOB06_POLICY_VALUATION"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "STAGING",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "STAGING.CUST_ACCOUNTS_DAILY",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.CUSTOMER_PNL",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB07_CUSTOMER_PROFITABILITY.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Selects t.CUSTOMER_ID from CURATED.DAILY_TRANSACTIONS, which has no such column: fails on estate data exactly like SAS (legacy defect, not fixed)"
+        }
+      ],
+      "transformation_display_name": "JOB07_CUSTOMER_PROFITABILITY"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.DAILY_TRANSACTIONS",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.CUSTOMER_PNL",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB07_CUSTOMER_PROFITABILITY.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Selects t.CUSTOMER_ID from CURATED.DAILY_TRANSACTIONS, which has no such column: fails on estate data exactly like SAS (legacy defect, not fixed)"
+        }
+      ],
+      "transformation_display_name": "JOB07_CUSTOMER_PROFITABILITY"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "CURATED",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "CURATED.RISK_SCORES",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.CUSTOMER_PNL",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB07_CUSTOMER_PROFITABILITY.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Selects t.CUSTOMER_ID from CURATED.DAILY_TRANSACTIONS, which has no such column: fails on estate data exactly like SAS (legacy defect, not fixed)"
+        }
+      ],
+      "transformation_display_name": "JOB07_CUSTOMER_PROFITABILITY"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.CUSTOMER_PNL",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.SEGMENT_PROFITABILITY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB07_CUSTOMER_PROFITABILITY.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Selects t.CUSTOMER_ID from CURATED.DAILY_TRANSACTIONS, which has no such column: fails on estate data exactly like SAS (legacy defect, not fixed)"
+        }
+      ],
+      "transformation_display_name": "JOB07_CUSTOMER_PROFITABILITY"
+    }
+  },
+  {
+    "source": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.CUSTOMER_PNL",
+        "type": "Table"
+      }
+    },
+    "target": {
+      "nodes": [
+        {
+          "name": "snowflake",
+          "type": "System"
+        },
+        {
+          "name": "FINANCE_DB",
+          "type": "Database"
+        },
+        {
+          "name": "REPORTS",
+          "type": "Schema"
+        }
+      ],
+      "parent": {
+        "name": "REPORTS.BRANCH_PROFITABILITY",
+        "type": "Table"
+      }
+    },
+    "transformations": {
+      "path": "snowflake_sql/JOB07_CUSTOMER_PROFITABILITY.sql",
+      "highlights": [
+        {
+          "start": 0,
+          "len": 120,
+          "text": "Selects t.CUSTOMER_ID from CURATED.DAILY_TRANSACTIONS, which has no such column: fails on estate data exactly like SAS (legacy defect, not fixed)"
+        }
+      ],
+      "transformation_display_name": "JOB07_CUSTOMER_PROFITABILITY"
+    }
   }
 ]
