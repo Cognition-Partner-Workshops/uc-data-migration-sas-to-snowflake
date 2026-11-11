@@ -27,6 +27,13 @@ VALIDATIONS_CSV = os.path.join(CONFIG_DIR, "validations_list.csv")
 
 KNOWN_TABLES = ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"]
 
+# Golden-baseline mode (--sas-golden DIR): tables are addressed as LIB.TABLE
+# (e.g. CURATED.TXN_ANOMALIES). The SAS side is DIR/<lib>__<table>.csv as
+# written by the estate's docker/sas/export_golden.sas; the Snowflake side is
+# sample_data/<scenario>/<LIB>__<TABLE>.csv. Column names are compared
+# case-insensitively because PROC EXPORT and Snowflake both upper-case them.
+SCENARIO_VALIDATIONS_FILE = "validations.csv"
+
 
 # ── helpers (inlined to avoid importing the Streamlit/LLM chain) ─────────
 
@@ -43,6 +50,13 @@ def decode_value(x):
     return x
 
 
+def _filtered(df: pd.DataFrame, code: str) -> pd.DataFrame:
+    """Apply a business-rule predicate (pandas ``query`` syntax) to *df*."""
+    if not code or code == "NA":
+        return df
+    return df.query(code, engine="python")
+
+
 def _run_validations(
     validations_list: list,
     sas_df: pd.DataFrame,
@@ -56,6 +70,45 @@ def _run_validations(
 
     for val in validations_list:
         rule = val["rule"]
+        code = val.get("code", "NA")
+
+        if rule == "Filtered Count":
+            # Business-rule check: number of rows satisfying ``code`` on both sides.
+            fc_sas, fc_sf = len(_filtered(sas_df, code)), len(_filtered(sf_df, code))
+            status = "PASS" if fc_sas == fc_sf else "FAIL"
+            results.append({
+                "Test": f"Filtered Count ({code})",
+                "SAS Dataset": sas_table_name,
+                "SF Table": sf_table_name,
+                "SAS Column": "NA",
+                "SF Column": "NA",
+                "SAS Value": fc_sas,
+                "SF Value": fc_sf,
+                "Status": status,
+            })
+            continue
+
+        if rule == "Filtered Sum":
+            # Business-rule check: sum of ``column`` over rows satisfying ``code``.
+            col = val["column"]
+            if col in sas_df.columns and col in sf_df.columns:
+                fs_sas = _filtered(sas_df, code)[col].astype(float).sum()
+                fs_sf = _filtered(sf_df, code)[col].astype(float).sum()
+                status = "PASS" if abs(fs_sas - fs_sf) < 0.01 else "FAIL"
+                sas_val, sf_val = round(fs_sas, 2), round(fs_sf, 2)
+            else:
+                status, sas_val, sf_val = "SKIP (column missing)", 0, 0
+            results.append({
+                "Test": f"Filtered Sum ({code})",
+                "SAS Dataset": sas_table_name,
+                "SF Table": sf_table_name,
+                "SAS Column": col,
+                "SF Column": col,
+                "SAS Value": sas_val,
+                "SF Value": sf_val,
+                "Status": status,
+            })
+            continue
 
         if rule == "Row Count":
             rc_sas, rc_sf = len(sas_df), len(sf_df)
@@ -192,8 +245,19 @@ def _run_validations(
 
 # ── loaders ──────────────────────────────────────────────────────────────
 
-def load_sas_source(table: str) -> pd.DataFrame:
-    """Load the SAS .sas7bdat baseline for *table*."""
+def _golden_name(table: str) -> str:
+    return table.replace(".", "__")
+
+
+def load_sas_source(table: str, golden_dir: str | None = None) -> pd.DataFrame:
+    """Load the SAS baseline for *table* (.sas7bdat, CSV, or golden export)."""
+    if golden_dir:
+        golden_path = os.path.join(golden_dir, f"{_golden_name(table).lower()}.csv")
+        if not os.path.exists(golden_path):
+            raise FileNotFoundError(f"SAS golden export not found: {golden_path}")
+        df = pd.read_csv(golden_path)
+        df.columns = [c.upper() for c in df.columns]
+        return df
     sas_path = os.path.join(SAMPLE_DIR, f"{table}.sas7bdat")
     if os.path.exists(sas_path):
         df = pd.read_sas(sas_path, format="sas7bdat")
@@ -205,20 +269,51 @@ def load_sas_source(table: str) -> pd.DataFrame:
     raise FileNotFoundError(f"SAS source not found: {sas_path}")
 
 
-def load_snowflake_target(table: str, scenario: str) -> pd.DataFrame:
+def target_path(table: str, scenario: str) -> str:
+    return os.path.join(SAMPLE_DIR, scenario, f"{_golden_name(table)}.csv")
+
+
+def load_snowflake_target(
+    table: str, scenario: str, golden_mode: bool = False
+) -> pd.DataFrame:
     """Load the Snowflake CSV export for *table* in *scenario*."""
-    path = os.path.join(SAMPLE_DIR, scenario, f"{table}.csv")
+    path = target_path(table, scenario)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Snowflake target not found: {path}")
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    if golden_mode:
+        df.columns = [c.upper() for c in df.columns]
+    return df
 
 
-def load_validations(table: str, quick: bool = False) -> list:
+def validations_path(scenario: str | None = None) -> str:
+    """Scenario-local rules (sample_data/<scenario>/validations.csv) win over
+    the shared config so parallel conversions never edit the same file."""
+    if scenario:
+        local = os.path.join(SAMPLE_DIR, scenario, SCENARIO_VALIDATIONS_FILE)
+        if os.path.exists(local):
+            return local
+    return VALIDATIONS_CSV
+
+
+def scenario_tables(scenario: str) -> list:
+    """Tables named in the scenario-local validations file (in file order)."""
+    path = validations_path(scenario)
+    if path == VALIDATIONS_CSV:
+        return []
+    df = pd.read_csv(path, keep_default_na=False)
+    return list(dict.fromkeys(df["table"].tolist()))
+
+
+def load_validations(
+    table: str, quick: bool = False, scenario: str | None = None
+) -> list:
     """Return the validation rules for *table* from the CSV config."""
-    if not os.path.exists(VALIDATIONS_CSV):
+    path = validations_path(scenario)
+    if not os.path.exists(path):
         return [{"rule": "Row Count", "column": "NA"}]
 
-    df = pd.read_csv(VALIDATIONS_CSV, keep_default_na=False)
+    df = pd.read_csv(path, keep_default_na=False)
     df = df[df["table"] == table]
 
     if quick:
@@ -226,7 +321,11 @@ def load_validations(table: str, quick: bool = False) -> list:
 
     rules: list[dict] = []
     for _, row in df.iterrows():
-        entry: dict = {"rule": row["rule"], "column": row.get("column", "NA")}
+        entry: dict = {
+            "rule": row["rule"],
+            "column": row.get("column", "NA"),
+            "code": row.get("code", "NA") or "NA",
+        }
         rules.append(entry)
 
     if not rules:
@@ -264,18 +363,46 @@ def print_report(
 
 # ── main ─────────────────────────────────────────────────────────────────
 
-def reconcile_table(table: str, scenario: str, quick: bool = False) -> bool:
+def reconcile_table(
+    table: str,
+    scenario: str,
+    quick: bool = False,
+    golden_dir: str | None = None,
+    report_rows: list | None = None,
+) -> bool:
     """Run reconciliation for one table. Returns True if all checks pass."""
-    sas_df = load_sas_source(table)
-    sf_df = load_snowflake_target(table, scenario)
-    rules = load_validations(table, quick=quick)
+    sas_df = load_sas_source(table, golden_dir=golden_dir)
+    sf_df = load_snowflake_target(table, scenario, golden_mode=bool(golden_dir))
+    rules = load_validations(table, quick=quick, scenario=scenario)
 
     any_failures, results_df = _run_validations(
         rules, sas_df, table, sf_df, table
     )
 
     print_report(table, scenario, results_df, any_failures)
+    if report_rows is not None:
+        for _, row in results_df.iterrows():
+            report_rows.append(row.to_dict())
     return not any_failures
+
+
+def write_markdown_report(path: str, scenario: str, rows: list, all_pass: bool) -> None:
+    """Write the reconciliation results as a Markdown table (for PR bodies)."""
+    lines = [
+        f"# Reconciliation report: {scenario}",
+        "",
+        f"Overall: **{'PASS' if all_pass else 'FAIL'}**",
+        "",
+        "| Table | Test | Column | SAS | Snowflake | Status |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        lines.append(
+            f"| {r.get('SF Table', '')} | {r.get('Test', '')} | {r.get('SAS Column', '')} "
+            f"| {r.get('SAS Value', '')} | {r.get('SF Value', '')} | {r.get('Status', '')} |"
+        )
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
 
 
 def main() -> None:
@@ -294,19 +421,38 @@ def main() -> None:
         "--quick", action="store_true",
         help="Quick mode: row counts only",
     )
+    parser.add_argument(
+        "--sas-golden", default=None, metavar="DIR",
+        help="Directory of SAS golden CSV exports (<lib>__<table>.csv). "
+             "Tables are then addressed as LIB.TABLE.",
+    )
+    parser.add_argument(
+        "--report", default=None, metavar="PATH",
+        help="Also write the results as a Markdown table to PATH",
+    )
     args = parser.parse_args()
 
-    tables = [args.table] if args.table else KNOWN_TABLES
+    if args.table:
+        tables = [args.table]
+    else:
+        tables = scenario_tables(args.scenario) or KNOWN_TABLES
     all_pass = True
+    report_rows: list = []
 
     for tbl in tables:
-        scenario_path = os.path.join(SAMPLE_DIR, args.scenario, f"{tbl}.csv")
-        if not os.path.exists(scenario_path):
+        if not os.path.exists(target_path(tbl, args.scenario)):
             print(f"  SKIP {tbl}: no CSV in {args.scenario}/")
             continue
-        passed = reconcile_table(tbl, args.scenario, quick=args.quick)
+        passed = reconcile_table(
+            tbl, args.scenario, quick=args.quick,
+            golden_dir=args.sas_golden, report_rows=report_rows,
+        )
         if not passed:
             all_pass = False
+
+    if args.report:
+        write_markdown_report(args.report, args.scenario, report_rows, all_pass)
+        print(f"Report written to {args.report}")
 
     print()
     if all_pass:
