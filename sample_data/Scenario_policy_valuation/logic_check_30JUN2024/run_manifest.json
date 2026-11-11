@@ -1,0 +1,18 @@
+{
+  "engine": "snowflake",
+  "database": "SAS_MIG_JOB06_PV",
+  "warehouse": "COMPUTE_WH",
+  "sql": "snowflake_sql/JOB06_POLICY_VALUATION.sql",
+  "val_date": "2024-06-30",
+  "lob": "ALL",
+  "run_at_utc": "2026-11-11T04:37:24Z",
+  "input_rows": {
+    "RAW_INS.POLICIES": 12,
+    "RAW_INS.CLAIMS": 12,
+    "RAW_INS.PREMIUMS": 10
+  },
+  "output_rows": {
+    "STG_INS.POLICY_VALUATION": 6,
+    "REPORTS.LOSS_RATIO_SUMMARY": 5
+  }
+}
