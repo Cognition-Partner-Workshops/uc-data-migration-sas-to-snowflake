@@ -16,7 +16,6 @@ Usage:
 import argparse
 import os
 import sys
-from typing import Tuple
 
 import pandas as pd
 
@@ -25,7 +24,11 @@ SAMPLE_DIR = os.path.join(REPO_ROOT, "sample_data")
 CONFIG_DIR = os.path.join(REPO_ROOT, "config")
 VALIDATIONS_CSV = os.path.join(CONFIG_DIR, "validations_list.csv")
 
-KNOWN_TABLES = ["CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB"]
+KNOWN_TABLES = [
+    "CUST_ACCOUNTS", "DAILY_BALANCE", "MONTHLY_AMB",
+    # JOB02 (daily_transaction_processing.sas) outputs, SAS golden baseline for 31JAN2024
+    "DAILY_TRANSACTIONS", "TXN_ANOMALIES", "RUNNING_BALANCES",
+]
 
 
 # ── helpers (inlined to avoid importing the Streamlit/LLM chain) ─────────
@@ -38,7 +41,7 @@ def decode_value(x):
     ):
         try:
             return bytes(x).decode("utf-8", errors="ignore").strip()
-        except Exception:
+        except (TypeError, ValueError):
             return x
     return x
 
@@ -49,7 +52,7 @@ def _run_validations(
     sas_table_name: str,
     sf_df: pd.DataFrame,
     sf_table_name: str,
-) -> Tuple[bool, pd.DataFrame]:
+) -> tuple[bool, pd.DataFrame]:
     """Execute validation rules and return (any_failures, results_df)."""
     any_failures = False
     results: list[dict] = []
@@ -118,6 +121,40 @@ def _run_validations(
             else:
                 results.append({
                     "Test": "Distinct Count",
+                    "SAS Dataset": sas_table_name,
+                    "SF Table": sf_table_name,
+                    "SAS Column": col,
+                    "SF Column": col,
+                    "SAS Value": 0,
+                    "SF Value": 0,
+                    "Status": "SKIP (column missing)",
+                })
+
+        elif rule == "Group Count":
+            # Per-category row counts (e.g. anomalies by ANOMALY_TYPE); every
+            # category must match on both sides, including categories only one
+            # side produced.
+            col = val["column"]
+            if col in sas_df.columns and col in sf_df.columns:
+                gc_sas = sas_df[col].fillna("").astype(str).value_counts().to_dict()
+                gc_sf = sf_df[col].fillna("").astype(str).value_counts().to_dict()
+                cats = sorted(set(gc_sas) | set(gc_sf))
+                for cat in cats:
+                    n_sas = int(gc_sas.get(cat, 0))
+                    n_sf = int(gc_sf.get(cat, 0))
+                    results.append({
+                        "Test": "Group Count",
+                        "SAS Dataset": sas_table_name,
+                        "SF Table": sf_table_name,
+                        "SAS Column": f"{col}={cat}",
+                        "SF Column": f"{col}={cat}",
+                        "SAS Value": n_sas,
+                        "SF Value": n_sf,
+                        "Status": "PASS" if n_sas == n_sf else "FAIL",
+                    })
+            else:
+                results.append({
+                    "Test": "Group Count",
                     "SAS Dataset": sas_table_name,
                     "SF Table": sf_table_name,
                     "SAS Column": col,
@@ -255,7 +292,7 @@ def print_report(
         sas_val = row.get("SAS Value", "")
         sf_val = row.get("SF Value", "")
         col = row.get("SAS Column", "")
-        marker = "PASS" if status == "PASS" else f"FAIL <<<" if status == "FAIL" else status
+        marker = "PASS" if status == "PASS" else "FAIL <<<" if status == "FAIL" else status
         col_label = f" [{col}]" if col and col != "NA" else ""
         print(f"  {test}{col_label}: SAS={sas_val}  SF={sf_val}  -> {marker}")
 
