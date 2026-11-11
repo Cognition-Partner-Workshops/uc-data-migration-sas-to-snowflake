@@ -144,3 +144,22 @@ upstream = collect_upstream_tables(sf_graph, "MONTHLY_AMB")
 
 Compare the SAS and Snowflake lineage to identify where a transformation
 diverged (e.g., an extra `WHERE` clause added during migration).
+
+## Golden-baseline mode (banking programs with Docker SAS golden exports)
+
+When the SAS baseline comes from the estate's Docker runner (`<lib>__<table>.csv` files,
+produced by `docker/sas/export_golden.sas` for business date 31JAN2024), reconcile with:
+
+```bash
+python3 verify/reconcile.py --scenario Scenario_<program> --sas-golden /path/to/golden --report reconciliation.md
+```
+
+* Tables are addressed as `LIB.TABLE` (e.g. `CURATED.TXN_ANOMALIES`); the Snowflake side is
+  `sample_data/Scenario_<program>/<LIB>__<TABLE>.csv` (upper-case). Column names are compared case-insensitively.
+* Rules live in `sample_data/Scenario_<program>/validations.csv` (same columns as
+  `config/validations_list.csv`). A scenario-local file takes precedence, so parallel conversions never
+  edit the shared config. Supported rules: `Row Count`, `Sum Amount`, `Distinct Count`, `Not Null`,
+  `Uniqueness`, plus business-rule checks `Filtered Count` and `Filtered Sum`, whose `code` column is a
+  pandas `query` predicate (e.g. `ANOMALY_TYPE == 'HIGH_AMOUNT'`).
+* `--report PATH` writes the results as a Markdown table for the PR body.
+* Unformatted SAS dates export as SAS date integers (days since 1960-01-01; 23406 = 2024-01-31).
